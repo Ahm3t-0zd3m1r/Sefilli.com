@@ -1,0 +1,251 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: blogPosts
+    // Fields: title, content, author, createdAt, imageUrl, videoUrl
+    //
+    // Collection: cropPrices
+    // Fields: name, price, unit, trend, city, updatedAt, history
+    //
+    // Collection: galleryItems
+    // Fields: type, url, thumbnailUrl, caption, createdAt
+    //
+    // Collection: comments
+    // Fields: postId, userName, content, city, likes, createdAt
+    //
+    // Collection: contactMessages
+    // Fields: name, email, subject, message, createdAt
+    //
+    // Collection: harvestEvents
+    // Fields: cropName, action, month, description
+    //
+    // Collection: stockItems
+    // Fields: name, quantity, status, updatedAt
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "ahm3t.07d3m1rr@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidString(field, maxLen) {
+      return request.resource.data[field] is string && request.resource.data[field].size() <= maxLen;
+    }
+
+    // Blog Posts: Everyone can read, only admin can write
+    match /blogPosts/{postId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Crop Prices: Everyone can read, only admin can write
+    match /cropPrices/{priceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Gallery Items: Everyone can read, only admin can write
+    match /galleryItems/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Comments: Everyone can read, authenticated users can create
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && 
+        request.resource.data.keys().hasAll(['postId', 'userName', 'content', 'city', 'likes', 'createdAt']) &&
+        request.resource.data.likes == 0 &&
+        isValidString('content', 1000) &&
+        isValidString('userName', 100);
+      allow update: if isAuthenticated() && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']);
+      allow delete: if isAdmin();
+    }
+
+    // Contact Messages: Only admin can read, everyone can create
+    match /contactMessages/{messageId} {
+      allow read: if isAdmin();
+      allow create: if request.resource.data.keys().hasAll(['name', 'email', 'subject', 'message', 'createdAt']) &&
+        isValidEmail(request.resource.data.email) &&
+        isValidString('message', 5000);
+    }
+
+    // Harvest Events: Everyone can read, only admin can write
+    match /harvestEvents/{eventId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Stock Items: Everyone can read, only admin can write
+    match /stockItems/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Recipes: Everyone can read, only admin can write
+    match /recipes/{recipeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Disease Analysis: Authenticated users can read, only owners can create
+    match /diseaseAnalysis/{analysisId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // Marketplace Items: Everyone can read, authenticated users can create/update their own
+    match /marketplaceItems/{itemId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    // User Profiles: Everyone can read, authenticated users can create/update their own
+    match /userProfiles/{userId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && userId == request.auth.uid;
+      allow update: if isAuthenticated() && (userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // News: Everyone can read, only admin can write
+    match /news/{newsId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Orders: Only owners and admin can read, everyone can create (authenticated)
+    match /orders/{orderId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    // Soil Analysis: Only owners and admin can read/write
+    match /soilAnalysis/{analysisId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // Newsletter: Only admin can read, everyone can create
+    match /newsletter/{subscriberId} {
+      allow read: if isAdmin();
+      allow create: if isValidEmail(request.resource.data.email);
+    }
+
+    // Forum Posts: Everyone can read, authenticated users can create
+    match /forumPosts/{postId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidForumPost(request.resource.data) && request.resource.data.authorId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'commentCount'])) ||
+        (resource.data.authorId == request.auth.uid && isValidForumPost(request.resource.data))
+      );
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.authorId == request.auth.uid);
+    }
+
+    // Forum Comments: Everyone can read, authenticated users can create
+    match /forumComments/{commentId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidForumComment(request.resource.data) && request.resource.data.authorId == request.auth.uid;
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.authorId == request.auth.uid);
+    }
+
+    // Weather Alerts: Everyone can read, only admin can write
+    match /weatherAlerts/{alertId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Harvest Predictions: Only owners and admin can read/write
+    match /harvestPredictions/{predictionId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // Equipment Listings: Everyone can read, authenticated users can create/update their own
+    match /equipmentListings/{listingId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    // Customer Reviews: Everyone can read, authenticated users can create
+    match /customerReviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    // Irrigation Plans: Only owners and admin can read/write
+    match /irrigationPlans/{planId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // Expenses: Only owners can read/write
+    match /expenses/{expenseId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Crop Cycles: Only owners can read/write
+    match /cropCycles/{cycleId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Chat Messages: Only owners can read/write
+    match /chatMessages/{messageId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    function isValidForumPost(data) {
+      return hasRequiredFields(['title', 'content', 'category', 'authorId', 'authorName', 'createdAt']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 5000 &&
+             data.category in ['ekim', 'gubreleme', 'sulama', 'hasat', 'ekipman', 'genel'];
+    }
+
+    function isValidForumComment(data) {
+      return hasRequiredFields(['postId', 'authorId', 'authorName', 'content', 'createdAt']) &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 1000;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "Sefilli.com",
+  "description": "Niğde İçmeli Köyü'nde patates, buğday, arpa ve fasulye üretimi yapan Sefilli.com'un dijital dünyası. Güncel fiyatlar, AI danışman ve tarladan canlı bilgiler.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

@@ -1,0 +1,392 @@
+{
+  "entities": {
+    "blogPosts": {
+      "title": "Blog Yazıları",
+      "description": "Tarladan günlük hayat ve bakım notları.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Yazı başlığı" },
+        "content": { "type": "string", "description": "Yazı içeriği" },
+        "author": { "type": "string", "description": "Yazar ismi" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Oluşturulma tarihi" },
+        "imageUrl": { "type": "string", "description": "Görsel URL'si" },
+        "videoUrl": { "type": "string", "description": "Video URL'si" }
+      },
+      "required": ["title", "content", "author", "createdAt"]
+    },
+    "cropPrices": {
+      "title": "Mahsül Fiyatları",
+      "description": "Güncel mahsül fiyat listesi.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Ürün ismi" },
+        "price": { "type": "number", "description": "Fiyat" },
+        "unit": { "type": "string", "description": "Birim (kg, ton vb.)" },
+        "trend": { "type": "string", "enum": ["up", "down", "stable"], "description": "Fiyat trendi" },
+        "city": { "type": "string", "description": "Şehir" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Son güncelleme" },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": { "type": "string", "format": "date" },
+              "price": { "type": "number" }
+            }
+          },
+          "description": "Fiyat geçmişi"
+        }
+      },
+      "required": ["name", "price", "unit", "trend", "city", "updatedAt"]
+    },
+    "harvestEvents": {
+      "title": "Hasat ve Ekim Takvimi",
+      "description": "Çiftlikteki ekim ve hasat zamanları.",
+      "type": "object",
+      "properties": {
+        "cropName": { "type": "string", "description": "Ürün ismi" },
+        "action": { "type": "string", "enum": ["planting", "harvesting"], "description": "Eylem türü" },
+        "month": { "type": "integer", "description": "Ay (0-11)" },
+        "description": { "type": "string", "description": "Açıklama" }
+      },
+      "required": ["cropName", "action", "month"]
+    },
+    "stockItems": {
+      "title": "Stok Durumu",
+      "description": "Tarladaki güncel ürün stokları.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Ürün ismi" },
+        "quantity": { "type": "string", "description": "Miktar" },
+        "status": { "type": "string", "enum": ["available", "low", "sold-out"], "description": "Stok durumu" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Son güncelleme" }
+      },
+      "required": ["name", "quantity", "status", "updatedAt"]
+    },
+    "galleryItems": {
+      "title": "Galeri",
+      "description": "Fotoğraf ve video paylaşımları.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["image", "video"], "description": "Medya türü" },
+        "url": { "type": "string", "description": "Medya URL'si" },
+        "thumbnailUrl": { "type": "string", "description": "Küçük resim URL'si" },
+        "caption": { "type": "string", "description": "Açıklama" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Yükleme tarihi" }
+      },
+      "required": ["type", "url", "caption", "createdAt"]
+    },
+    "comments": {
+      "title": "Yorumlar",
+      "description": "Ziyaretçi yorumları.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string", "description": "İlgili yazı ID'si" },
+        "userName": { "type": "string", "description": "Kullanıcı ismi" },
+        "content": { "type": "string", "description": "Yorum içeriği" },
+        "city": { "type": "string", "description": "Şehir" },
+        "likes": { "type": "number", "description": "Beğeni sayısı" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Oluşturulma tarihi" }
+      },
+      "required": ["postId", "userName", "content", "city", "likes", "createdAt"]
+    },
+    "contactMessages": {
+      "title": "İletişim Mesajları",
+      "description": "Ziyaretçilerin gönderdiği mesajlar.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Gönderen ismi" },
+        "email": { "type": "string", "format": "email", "description": "E-posta" },
+        "subject": { "type": "string", "description": "Konu" },
+        "message": { "type": "string", "description": "Mesaj" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Gönderilme tarihi" }
+      },
+      "required": ["name", "email", "subject", "message", "createdAt"]
+    },
+    "recipes": {
+      "title": "Tarifler",
+      "description": "Tarladan sofraya tarifler.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Tarif başlığı" },
+        "ingredients": { "type": "array", "items": { "type": "string" }, "description": "Malzemeler" },
+        "instructions": { "type": "string", "description": "Hazırlanışı" },
+        "imageUrl": { "type": "string", "description": "Görsel URL'si" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Oluşturulma tarihi" }
+      },
+      "required": ["title", "ingredients", "instructions", "createdAt"]
+    },
+    "diseaseAnalysis": {
+      "title": "Hastalık Analizi",
+      "description": "Yapay zeka ile hastalık teşhisi.",
+      "type": "object",
+      "properties": {
+        "imageUrl": { "type": "string", "description": "Görsel URL'si" },
+        "result": { "type": "string", "description": "Analiz sonucu" },
+        "userId": { "type": "string", "description": "Kullanıcı ID'si" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Oluşturulma tarihi" }
+      },
+      "required": ["imageUrl", "result", "userId", "createdAt"]
+    },
+    "orders": {
+      "title": "Siparişler",
+      "description": "Ürün ön siparişleri.",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "shipped", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["productId", "productName", "quantity", "customerName", "customerPhone", "status", "createdAt"]
+    },
+    "soilAnalysis": {
+      "title": "Toprak Analizi",
+      "description": "Toprak tahlili sonuçları ve AI önerileri.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "reportUrl": { "type": "string" },
+        "analysisResult": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "reportUrl", "analysisResult", "createdAt"]
+    },
+    "newsletter": {
+      "title": "Bülten Aboneleri",
+      "description": "Hasat bildirimleri için abone listesi.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "forumPosts": {
+      "title": "Forum Yazıları",
+      "description": "Çiftçi dayanışma forumu gönderileri.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string", "enum": ["ekim", "gubreleme", "sulama", "hasat", "ekipman", "genel"] },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "likes": { "type": "array", "items": { "type": "string" } },
+        "commentCount": { "type": "number" }
+      },
+      "required": ["title", "content", "category", "authorId", "authorName", "createdAt"]
+    },
+    "forumComments": {
+      "title": "Forum Yorumları",
+      "description": "Forum gönderilerine yapılan yorumlar.",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "authorId", "authorName", "content", "createdAt"]
+    },
+    "weatherAlerts": {
+      "title": "Hava Durumu Uyarıları",
+      "description": "Don, fırtına ve aşırı hava olayları uyarıları.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["frost", "storm", "heat", "rain"] },
+        "severity": { "type": "string", "enum": ["info", "warning", "critical"] },
+        "message": { "type": "string" },
+        "city": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "severity", "message", "city", "createdAt", "expiresAt"]
+    },
+    "harvestPredictions": {
+      "title": "Hasat Tahminleri",
+      "description": "Yapay zeka ile hasat zamanı tahmini.",
+      "type": "object",
+      "properties": {
+        "imageUrl": { "type": "string" },
+        "cropType": { "type": "string" },
+        "maturityLevel": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["imageUrl", "cropType", "maturityLevel", "recommendation", "userId", "createdAt"]
+    },
+    "marketplaceItems": {
+      "title": "Pazar Ürünleri",
+      "description": "Satışa sunulan farm ürünleri.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "unit": { "type": "string" },
+        "category": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "available": { "type": "boolean" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "description", "price", "unit", "category", "available", "userId", "userName", "createdAt"]
+    },
+    "userProfiles": {
+      "title": "Kullanıcı Profilleri",
+      "description": "Çiftçi ve tüccar profil bilgileri.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "displayName": { "type": "string" },
+        "bio": { "type": "string" },
+        "role": { "type": "string", "enum": ["farmer", "trader", "admin"] },
+        "reliabilityScore": { "type": "number" },
+        "totalSales": { "type": "number" },
+        "locationName": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "displayName", "role", "createdAt"]
+    },
+    "news": {
+      "title": "Haberler ve Duyurular",
+      "description": "Tarım politikaları ve hava durumu duyuruları.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string", "enum": ["policy", "weather", "market", "general"] },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "category", "createdAt"]
+    },
+    "equipmentListings": {
+      "title": "Ekipman ve İş Gücü İlanları",
+      "description": "Kiralık ekipman ve yevmiye ilanları.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["equipment", "labor"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "unit": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "isAvailable": { "type": "boolean" }
+      },
+      "required": ["type", "title", "description", "price", "unit", "contactPhone", "userId", "userName", "createdAt", "isAvailable"]
+    },
+    "customerReviews": {
+      "title": "Müşteri Yorumları",
+      "description": "Ürün ve hizmet yorumları.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "productId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "rating", "comment", "createdAt"]
+    },
+    "irrigationPlans": {
+      "title": "Sulama ve Gübreleme Planları",
+      "description": "AI tarafından oluşturulan tarım planları.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "cropType": { "type": "string" },
+        "fieldSize": { "type": "number" },
+        "soilType": { "type": "string" },
+        "plan": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "cropType", "fieldSize", "soilType", "plan", "createdAt"]
+    },
+    "expenses": {
+      "title": "Gider Takibi",
+      "description": "Mazot, gübre, ilaç ve işçilik giderleri.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "category": { "type": "string", "enum": ["mazot", "gubre", "ilac", "iscilik", "diger"] },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "category", "amount", "date", "createdAt"]
+    },
+    "cropCycles": {
+      "title": "Ekim Döngüleri",
+      "description": "Kişiselleştirilmiş hasat ve bakım takvimi.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "cropName": { "type": "string" },
+        "plantingDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["growing", "harvested", "failed"] },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "cropName", "plantingDate", "status", "createdAt"]
+    },
+    "chatMessages": {
+      "title": "AI Danışman Mesajları",
+      "description": "Ziraat mühendisi yapay zeka ile sohbet geçmişi.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "model"] },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/blogPosts": { "schema": "blogPosts", "description": "Blog yazıları koleksiyonu" },
+    "/cropPrices": { "schema": "cropPrices", "description": "Mahsül fiyatları koleksiyonu" },
+    "/galleryItems": { "schema": "galleryItems", "description": "Galeri öğeleri koleksiyonu" },
+    "/comments": { "schema": "comments", "description": "Yorumlar koleksiyonu" },
+    "/contactMessages": { "schema": "contactMessages", "description": "İletişim mesajları koleksiyonu" },
+    "/harvestEvents": { "schema": "harvestEvents", "description": "Hasat ve ekim takvimi koleksiyonu" },
+    "/stockItems": { "schema": "stockItems", "description": "Stok durumu koleksiyonu" },
+    "/recipes": { "schema": "recipes", "description": "Tarifler koleksiyonu" },
+    "/diseaseAnalysis": { "schema": "diseaseAnalysis", "description": "Hastalık analizi koleksiyonu" },
+    "/orders": { "schema": "orders", "description": "Siparişler koleksiyonu" },
+    "/soilAnalysis": { "schema": "soilAnalysis", "description": "Toprak analizi koleksiyonu" },
+    "/newsletter": { "schema": "newsletter", "description": "Bülten aboneleri koleksiyonu" },
+    "/forumPosts": { "schema": "forumPosts", "description": "Forum gönderileri koleksiyonu" },
+    "/forumComments": { "schema": "forumComments", "description": "Forum yorumları koleksiyonu" },
+    "/weatherAlerts": { "schema": "weatherAlerts", "description": "Hava durumu uyarıları koleksiyonu" },
+    "/harvestPredictions": { "schema": "harvestPredictions", "description": "Hasat tahminleri koleksiyonu" },
+    "/marketplaceItems": { "schema": "marketplaceItems", "description": "Pazar ürünleri koleksiyonu" },
+    "/equipmentListings": { "schema": "equipmentListings", "description": "Ekipman ve iş gücü ilanları" },
+    "/customerReviews": { "schema": "customerReviews", "description": "Müşteri yorumları" },
+    "/irrigationPlans": { "schema": "irrigationPlans", "description": "Sulama planları" },
+    "/userProfiles": { "schema": "userProfiles", "description": "Kullanıcı profilleri koleksiyonu" },
+    "/news": { "schema": "news", "description": "Haberler koleksiyonu" },
+    "/expenses": { "schema": "expenses", "description": "Gider takibi koleksiyonu" },
+    "/cropCycles": { "schema": "cropCycles", "description": "Ekim döngüleri koleksiyonu" },
+    "/chatMessages": { "schema": "chatMessages", "description": "AI danışman mesajları koleksiyonu" }
+  }
+}
