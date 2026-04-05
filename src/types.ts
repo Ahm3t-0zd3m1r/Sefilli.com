@@ -31,6 +31,8 @@ export interface HarvestEvent {
   action: 'planting' | 'harvesting';
   month: number; // 0-11
   description?: string;
+  userName?: string;
+  createdAt: string;
 }
 
 export interface StockItem {
@@ -144,6 +146,13 @@ export interface SoilAnalysis {
   id: string;
   reportUrl: string;
   analysisResult: string;
+  data?: {
+    pH: number;
+    nitrogen: number;
+    phosphorus: number;
+    potassium: number;
+    organicMatter: number;
+  };
   userId: string;
   createdAt: string;
 }
@@ -228,7 +237,7 @@ export interface News {
 export interface Expense {
   id: string;
   userId: string;
-  category: 'mazot' | 'gubre' | 'ilac' | 'iscilik' | 'diger';
+  category: 'mazot' | 'gubre' | 'ilac' | 'iscilik' | 'diger' | 'yakit' | 'tohum';
   amount: number;
   description: string;
   date: string;

@@ -16,7 +16,7 @@ import {
   Moon, MessageCircle, Bell, Thermometer, Wind as WindIcon,
   Sparkles, History, Filter, ThumbsUp, MessageSquare as MessageSquareIcon,
   Upload, Calendar, Truck, Users, Droplets, Star, User as UserIcon,
-  LayoutGrid, Lock as LockIcon, Sprout as SproutIcon
+  LayoutGrid, Lock as LockIcon, Sprout as SproutIcon, FlaskConical, BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -31,7 +31,7 @@ import {
 import { 
   ref, uploadBytes, getDownloadURL, uploadBytesResumable 
 } from 'firebase/storage';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import imageCompression from 'browser-image-compression';
 import { toast, Toaster } from 'sonner';
 import { db, auth, storage } from './firebase';
@@ -42,6 +42,12 @@ import { handleFirestoreError, OperationType } from './lib/errorHandlers';
 import PriceChart from './components/PriceChart';
 import MiniPriceChart from './components/MiniPriceChart';
 import LazySection from './components/LazySection';
+import Header from './components/Header';
+import Footer from './components/Footer';
+import MarketDashboard from './components/MarketDashboard';
+import SoilAnalysisCharts from './components/SoilAnalysisCharts';
+import FarmerJournal from './components/FarmerJournal';
+import { Type } from "@google/genai";
 
 const GOOGLE_PROVIDER = new GoogleAuthProvider();
 
@@ -89,12 +95,14 @@ export default function App() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [aiWeatherAdvice, setAiWeatherAdvice] = useState<string | null>(null);
   const [isAiWeatherLoading, setIsAiWeatherLoading] = useState(false);
-  const [farmerToolTab, setFarmerToolTab] = useState<'finance' | 'calendar' | 'ai' | 'map' | 'soil'>('finance');
+  const [farmerToolTab, setFarmerToolTab] = useState<'finance' | 'calendar' | 'ai' | 'map' | 'soil' | 'hasat' | 'sulama' | 'don' | 'ilaclama'>('finance');
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [soilReports, setSoilReports] = useState<SoilAnalysis[]>([]);
+  const [harvestPredictions, setHarvestPredictions] = useState<HarvestPrediction[]>([]);
+  const [irrigationPlans, setIrrigationPlans] = useState<IrrigationPlan[]>([]);
   const [cropCycles, setCropCycles] = useState<CropCycle[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [soilReports, setSoilReports] = useState<SoilAnalysis[]>([]);
   const [weatherAlerts, setWeatherAlerts] = useState<WeatherAlert[]>([]);
   const [news, setNews] = useState<News[]>([]);
 
@@ -113,6 +121,11 @@ export default function App() {
   const [isChatting, setIsChatting] = useState(false);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
   const [newSoilAnalysis, setNewSoilAnalysis] = useState({ reportUrl: '', analysisResult: '' });
+  const [isPredicting, setIsPredicting] = useState(false);
+  const [predictionResult, setPredictionResult] = useState<HarvestPrediction | null>(null);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [newPlanInput, setNewPlanInput] = useState({ cropType: '', fieldSize: 0, soilType: 'tınlı' });
+  const [activePlan, setActivePlan] = useState<string | null>(null);
   const [newGallery, setNewGallery] = useState<{ type: 'image' | 'video', url: string, caption: string }>({ type: 'image', url: '', caption: '' });
   const [newMarketplaceItem, setNewMarketplaceItem] = useState({ 
     name: '', 
@@ -136,11 +149,6 @@ export default function App() {
   const [orderForm, setOrderForm] = useState({ quantity: 1, name: '', phone: '' });
   const [isOrdering, setIsOrdering] = useState(false);
 
-  // Soil Analysis State
-  const [soilReport, setSoilReport] = useState<string | null>(null);
-  const [isSoilAnalyzing, setIsSoilAnalyzing] = useState(false);
-  const [soilResult, setSoilResult] = useState<string | null>(null);
-
   // Newsletter State
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [isSubscribing, setIsSubscribing] = useState(false);
@@ -162,11 +170,6 @@ export default function App() {
   const [forumCategory, setForumCategory] = useState<ForumPost['category'] | 'all'>('all');
   const [isForumModalOpen, setIsForumModalOpen] = useState(false);
 
-  // Harvest Prediction State
-  const [harvestPredictions, setHarvestPredictions] = useState<HarvestPrediction[]>([]);
-  const [isPredicting, setIsPredicting] = useState(false);
-  const [predictionResult, setPredictionResult] = useState<HarvestPrediction | null>(null);
-
   // Equipment & Labor State
   const [equipmentListings, setEquipmentListings] = useState<EquipmentListing[]>([]);
   const [newListing, setNewListing] = useState({ type: 'equipment' as EquipmentListing['type'], title: '', description: '', price: 0, unit: 'gün', contactPhone: '', imageUrl: '' });
@@ -175,11 +178,6 @@ export default function App() {
   const [customerReviews, setCustomerReviews] = useState<CustomerReview[]>([]);
   const [newReview, setNewReview] = useState({ rating: 5, comment: '', imageUrl: '', targetUserId: '' });
 
-  // Irrigation Plan State
-  const [irrigationPlans, setIrrigationPlans] = useState<IrrigationPlan[]>([]);
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
-  const [newPlanInput, setNewPlanInput] = useState({ cropType: '', fieldSize: 0, soilType: 'tınlı' });
-  const [activePlan, setActivePlan] = useState<string | null>(null);
   const [marketplaceSearch, setMarketplaceSearch] = useState('');
   const [marketplaceFilter, setMarketplaceFilter] = useState('hepsi');
   const [marketplaceViewMode, setMarketplaceViewMode] = useState<'list' | 'map'>('list');
@@ -307,22 +305,6 @@ export default function App() {
       }, (err) => handleFirestoreError(err, OperationType.LIST, 'diseaseAnalysis'));
     }
 
-    let unsubPredictions = () => {};
-    if (user) {
-      const qPredictions = query(collection(db, 'harvestPredictions'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
-      unsubPredictions = onSnapshot(qPredictions, (snap) => {
-        setHarvestPredictions(snap.docs.map(d => ({ id: d.id, ...d.data() } as HarvestPrediction)));
-      }, (err) => handleFirestoreError(err, OperationType.LIST, 'harvestPredictions'));
-    }
-
-    let unsubSoil = () => {};
-    if (user) {
-      const qSoil = query(collection(db, 'soilReports'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
-      unsubSoil = onSnapshot(qSoil, (snap) => {
-        setSoilReports(snap.docs.map(d => ({ id: d.id, ...d.data() } as SoilAnalysis)));
-      }, (err) => handleFirestoreError(err, OperationType.LIST, 'soilReports'));
-    }
-
     const qMarketplace = query(collection(db, 'marketplaceItems'), orderBy('createdAt', 'desc'));
     const unsubMarketplace = onSnapshot(qMarketplace, (snap) => {
       setMarketplaceItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as MarketplaceItem)));
@@ -352,17 +334,11 @@ export default function App() {
       }
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'userProfiles'));
 
-    let unsubPlans = () => {};
     let unsubExpenses = () => {};
     let unsubCycles = () => {};
     let unsubChat = () => {};
 
     if (user) {
-      const qPlans = query(collection(db, 'irrigationPlans'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
-      unsubPlans = onSnapshot(qPlans, (snap) => {
-        setIrrigationPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as IrrigationPlan)));
-      }, (err) => handleFirestoreError(err, OperationType.LIST, 'irrigationPlans'));
-
       const qExpenses = query(collection(db, 'expenses'), where('userId', '==', user.uid), orderBy('date', 'desc'));
       unsubExpenses = onSnapshot(qExpenses, (snap) => {
         setExpenses(snap.docs.map(d => ({ id: d.id, ...d.data() } as Expense)));
@@ -377,6 +353,45 @@ export default function App() {
       unsubChat = onSnapshot(qChat, (snap) => {
         setChatMessages(snap.docs.map(d => ({ id: d.id, ...d.data() } as ChatMessage)));
       }, (err) => handleFirestoreError(err, OperationType.LIST, 'chatMessages'));
+
+      const qPredictions = query(collection(db, 'harvestPredictions'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+      const unsubPredictions = onSnapshot(qPredictions, (snap) => {
+        setHarvestPredictions(snap.docs.map(d => ({ id: d.id, ...d.data() } as HarvestPrediction)));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'harvestPredictions'));
+
+      const qSoil = query(collection(db, 'soilAnalysis'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+      const unsubSoil = onSnapshot(qSoil, (snap) => {
+        setSoilReports(snap.docs.map(d => ({ id: d.id, ...d.data() } as SoilAnalysis)));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'soilAnalysis'));
+
+      const qPlans = query(collection(db, 'irrigationPlans'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+      const unsubPlans = onSnapshot(qPlans, (snap) => {
+        setIrrigationPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as IrrigationPlan)));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'irrigationPlans'));
+
+      return () => {
+        unsubBlog();
+        unsubPrices();
+        unsubGallery();
+        unsubComments();
+        unsubHarvest();
+        unsubStock();
+        unsubRecipes();
+        unsubForum();
+        unsubAlerts();
+        unsubAnalyses();
+        unsubMarketplace();
+        unsubEquipment();
+        unsubReviews();
+        unsubNews();
+        unsubProfiles();
+        unsubExpenses();
+        unsubCycles();
+        unsubChat();
+        unsubPredictions();
+        unsubSoil();
+        unsubPlans();
+      };
     }
 
     return () => {
@@ -390,17 +405,11 @@ export default function App() {
       unsubForum();
       unsubAlerts();
       unsubAnalyses();
-      unsubPredictions();
-      unsubSoil();
       unsubMarketplace();
       unsubEquipment();
       unsubReviews();
       unsubNews();
       unsubProfiles();
-      unsubPlans();
-      unsubExpenses();
-      unsubCycles();
-      unsubChat();
     };
   }, [isAuthReady, user]);
 
@@ -539,10 +548,10 @@ export default function App() {
             toast.loading(`${file.name} sıkıştırılıyor...`, { id: uploadToast });
             console.log(`Compressing image: ${file.name} (${originalSize.toFixed(2)} MB)`);
             const options = {
-              maxSizeMB: 0.2, // Further reduced for speed
-              maxWidthOrHeight: 1024, // Further reduced for speed
+              maxSizeMB: 0.8, // Daha hızlı işlem için hedef boyutu artırıldı
+              maxWidthOrHeight: 1280, // Makul bir çözünürlük
               useWebWorker: true,
-              initialQuality: 0.6, // Further reduced for speed
+              initialQuality: 0.7, // Daha hızlı sıkıştırma için kalite dengelendi
             };
             try {
               fileToUpload = await imageCompression(file, options);
@@ -993,35 +1002,6 @@ export default function App() {
     }
   };
 
-  const handleGenerateIrrigationPlan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    setIsGeneratingPlan(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          { text: `Niğde İçmeli Köyü şartlarında, ${newPlanInput.fieldSize} dönüm ${newPlanInput.soilType} toprakta yetişen ${newPlanInput.cropType} için haftalık detaylı sulama ve gübreleme planı oluştur. Markdown formatında, tablo kullanarak ve organik yöntemleri önceliklendirerek cevap ver.` }
-        ],
-      });
-      const plan = response.text;
-      await addDoc(collection(db, 'irrigationPlans'), {
-        ...newPlanInput,
-        plan,
-        userId: user.uid,
-        createdAt: new Date().toISOString()
-      });
-      setActivePlan(plan);
-      toast.success("Plan başarıyla oluşturuldu!");
-    } catch (error) {
-      console.error("Plan error:", error);
-      toast.error("Plan oluşturulurken bir hata oluştu.");
-    } finally {
-      setIsGeneratingPlan(false);
-    }
-  };
-
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!botInput.trim() || isBotLoading) return;
@@ -1074,36 +1054,6 @@ export default function App() {
     }
   };
 
-  const handleSoilAnalysisUpload = async (file: File) => {
-    if (!user) return;
-    setIsAnalyzing(true);
-    try {
-      const reportUrl = await handleFileUpload(file, 'soil-reports');
-      
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          { text: "Bu bir toprak analizi raporu görseli veya verisi olabilir (varsayalım). Niğde İçmeli Köyü toprak yapısına göre (genelde kireçli ve tınlı) bu sonuçları yorumla ve hangi ürünlerin ekilmesini, hangi gübrelerin kullanılmasını önerirsin? Türkçe cevap ver." }
-        ],
-      });
-      const result = response.text || "Analiz sonucu alınamadı.";
-      
-      await addDoc(collection(db, 'soilReports'), {
-        reportUrl,
-        analysisResult: result,
-        userId: user.uid,
-        createdAt: new Date().toISOString()
-      });
-      toast.success('Toprak analizi raporu yüklendi ve AI tarafından yorumlandı.');
-    } catch (error) {
-      console.error("Soil analysis error:", error);
-      toast.error("Analiz sırasında bir hata oluştu.");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
   const handleAddGalleryItem = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -1152,51 +1102,6 @@ export default function App() {
     }
   };
 
-  const handleHarvestPrediction = async (file: File) => {
-    if (!user) return;
-    setIsPredicting(true);
-    setPredictionResult(null);
-    try {
-      const imageUrl = await handleFileUpload(file, 'harvest-predictions');
-      const base64String = await fileToBase64(file);
-      
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: [
-          {
-            inlineData: {
-              data: base64String.split(',')[1],
-              mimeType: "image/jpeg"
-            }
-          },
-          { text: "Bu tarım ürününün (meyve, sebze, tahıl vb.) görselini analiz et. Olgunluk seviyesini yüzde olarak tahmin et ve tahmini hasat zamanını (örneğin: '1 hafta içinde hasat edilebilir' veya 'Hemen hasat edilmeli') belirt. Ayrıca çiftçiye bu aşamada ne yapması gerektiğini (sulama, gübreleme vb.) Niğde şartlarına göre öner. Türkçe cevap ver." }
-        ],
-      });
-      
-      const resultText = response.text;
-      const lines = resultText.split('\n');
-      const maturity = lines.find(l => l.includes('%')) || 'Tahmin edilemedi';
-      
-      const prediction: Omit<HarvestPrediction, 'id'> = {
-        imageUrl,
-        cropType: 'Analiz Edilen Ürün',
-        maturityLevel: maturity,
-        recommendation: resultText,
-        userId: user.uid,
-        createdAt: new Date().toISOString()
-      };
-      
-      const docRef = await addDoc(collection(db, 'harvestPredictions'), prediction);
-      setPredictionResult({ id: docRef.id, ...prediction });
-    } catch (error) {
-      console.error("Prediction error:", error);
-      toast.error("Tahmin sırasında bir hata oluştu.");
-    } finally {
-      setIsPredicting(false);
-    }
-  };
-
   const handleLikeComment = async (id: string, currentLikes: number) => {
     if (!user) return;
     try {
@@ -1235,6 +1140,162 @@ export default function App() {
     }
   };
 
+  const handleTextToSpeech = async (text: string) => {
+    if (!text) return;
+    const toastId = toast.loading("Ses oluşturuluyor...");
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: `Lütfen şu metni samimi bir dille seslendir: ${text}` }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Kore' },
+            },
+          },
+        },
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        const audio = new Audio(`data:audio/wav;base64,${base64Audio}`);
+        audio.play();
+        toast.success("Ses çalınıyor...", { id: toastId });
+      } else {
+        throw new Error("Audio data not found");
+      }
+    } catch (error) {
+      console.error("TTS error:", error);
+      toast.error("Ses oluşturulurken bir hata oluştu.", { id: toastId });
+    }
+  };
+
+  const handleHarvestPrediction = async (file: File) => {
+    if (!user) return;
+    setIsPredicting(true);
+    try {
+      const base64 = await fileToBase64(file);
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: {
+          parts: [
+            { inlineData: { data: base64, mimeType: file.type } },
+            { text: "Bu mahsulün fotoğrafını analiz et. Hasat için ne kadar süre kaldığını, olgunluk seviyesini ve verim artırmak için ne yapılması gerektiğini söyle." }
+          ]
+        }
+      });
+
+      const result = response.text || "Analiz yapılamadı.";
+      const imageUrl = await handleFileUpload(file, 'predictions');
+
+      const prediction: HarvestPrediction = {
+        id: '',
+        imageUrl,
+        cropType: selectedCrop,
+        maturityLevel: result.slice(0, 50) + "...",
+        recommendation: result,
+        userId: user.uid,
+        createdAt: new Date().toISOString()
+      };
+
+      await addDoc(collection(db, 'harvestPredictions'), prediction);
+      setPredictionResult(prediction);
+      toast.success("Hasat tahmini tamamlandı!");
+    } catch (error) {
+      console.error("Prediction error:", error);
+      toast.error("Tahmin sırasında bir hata oluştu.");
+    } finally {
+      setIsPredicting(false);
+    }
+  };
+
+  const handleSoilAnalysisUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !newSoilAnalysis.reportUrl) return;
+    setIsAnalyzing(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      
+      // First, get the text analysis
+      const textResponse = await ai.models.generateContent({
+        model: "gemini-3.1-pro-preview",
+        contents: `Bu toprak analizi raporunu yorumla: ${newSoilAnalysis.reportUrl}. Hangi gübreler kullanılmalı, hangi ürünler ekilmeli?`
+      });
+
+      const result = textResponse.text || "Yorum yapılamadı.";
+
+      // Second, try to extract structured data for charts
+      let structuredData = null;
+      try {
+        const dataResponse = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: `Aşağıdaki toprak analizi raporundan şu değerleri sayısal olarak çıkar (0-100 arası normalize et, pH 0-14 arası kalsın): pH, azot, fosfor, potasyum, organik madde. Rapor: ${newSoilAnalysis.reportUrl}`,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                pH: { type: Type.NUMBER },
+                nitrogen: { type: Type.NUMBER },
+                phosphorus: { type: Type.NUMBER },
+                potassium: { type: Type.NUMBER },
+                organicMatter: { type: Type.NUMBER }
+              },
+              required: ["pH", "nitrogen", "phosphorus", "potassium", "organicMatter"]
+            }
+          }
+        });
+        structuredData = JSON.parse(dataResponse.text);
+      } catch (err) {
+        console.warn("Could not extract structured soil data:", err);
+      }
+
+      await addDoc(collection(db, 'soilAnalysis'), {
+        ...newSoilAnalysis,
+        analysisResult: result,
+        data: structuredData,
+        userId: user.uid,
+        createdAt: new Date().toISOString()
+      });
+      setNewSoilAnalysis({ reportUrl: '', analysisResult: '' });
+      toast.success("Toprak analizi kaydedildi!");
+    } catch (error) {
+      console.error("Soil analysis error:", error);
+      toast.error("Analiz sırasında bir hata oluştu.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleGenerateIrrigationPlan = async () => {
+    if (!user || !newPlanInput.cropType) return;
+    setIsGeneratingPlan(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-pro-preview",
+        contents: `${newPlanInput.cropType} ürünü için ${newPlanInput.fieldSize} dönüm ${newPlanInput.soilType} toprakta haftalık sulama planı oluştur. Hava durumu: ${weather?.temp}°C, ${weather?.condition}.`
+      });
+
+      const planText = response.text || "Plan oluşturulamadı.";
+      await addDoc(collection(db, 'irrigationPlans'), {
+        ...newPlanInput,
+        plan: planText,
+        userId: user.uid,
+        createdAt: new Date().toISOString()
+      });
+      toast.success("Sulama planı oluşturuldu!");
+    } catch (error) {
+      console.error("Irrigation plan error:", error);
+      toast.error("Plan oluşturulurken bir hata oluştu.");
+    } finally {
+      setIsGeneratingPlan(false);
+    }
+  };
+
   const months = [
     'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 
     'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
@@ -1253,6 +1314,7 @@ export default function App() {
       equipment: 'Ekipman & İş Gücü',
       reviews: 'Müşteri Yorumları',
       planner: 'Akıllı Planlayıcı',
+      journal: 'Çiftçi Günlüğü',
       heroTitle: 'Sefilli.com',
       heroSubtitle: 'Niğde\'nin bereketli topraklarından sofranıza.',
       heroCta: 'Tarlayı Gez'
@@ -1269,6 +1331,7 @@ export default function App() {
       equipment: 'Equipment & Labor',
       reviews: 'Reviews',
       planner: 'Smart Planner',
+      journal: 'Farmer Journal',
       heroTitle: 'Sefilli.com',
       heroSubtitle: 'From the fertile lands of Niğde to your table.',
       heroCta: 'Explore Farm'
@@ -1285,6 +1348,7 @@ export default function App() {
       equipment: 'Ausrüstung & Arbeit',
       reviews: 'Bewertungen',
       planner: 'Smarter Planer',
+      journal: 'Tagebuch',
       heroTitle: 'Sefilli.com',
       heroSubtitle: 'Von den fruchtbaren Böden von Niğde auf Ihren Tisch.',
       heroCta: 'Hof erkunden'
@@ -1295,6 +1359,8 @@ export default function App() {
     { id: 'anasayfa', label: translations[language].home },
     { id: 'hakkimizda', label: translations[language].about },
     { id: 'pazar', label: 'Pazar' },
+    { id: 'takvim', label: 'Takvim' },
+    { id: 'gunluk', label: translations[language].journal },
     { id: 'blog', label: translations[language].blog },
     { id: 'fiyatlar', label: translations[language].prices },
     { id: 'ekipman', label: translations[language].equipment },
@@ -1313,145 +1379,24 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-farm-cream dark:bg-zinc-950 transition-colors duration-300">
       <Toaster position="top-center" richColors />
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-farm-cream/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-farm-olive/10 dark:border-white/5">
-        <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveSection('anasayfa')}>
-            <div className="w-10 h-10 bg-farm-olive rounded-full flex items-center justify-center text-farm-cream">
-              <TrendingUp size={20} />
-            </div>
-            <span className="text-2xl serif font-bold tracking-tight text-farm-olive dark:text-farm-cream">Sefilli.com</span>
-          </div>
-
-          {/* Desktop Nav */}
-          <nav className="hidden lg:flex items-center gap-6">
-            {navLinks.map(link => (
-              <a
-                key={link.id}
-                href={`#${link.id}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActiveSection(link.id);
-                  scrollToSection(link.id);
-                }}
-                className={cn(
-                  "text-[10px] font-bold uppercase tracking-widest transition-colors hover:text-farm-olive dark:hover:text-farm-cream",
-                  activeSection === link.id ? "text-farm-olive dark:text-farm-cream border-b-2 border-farm-olive dark:border-farm-cream" : "text-gray-400 dark:text-zinc-500"
-                )}
-              >
-                {link.label}
-              </a>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-4">
-            {/* Theme Toggle */}
-            <button 
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="p-2 rounded-full bg-farm-olive/5 dark:bg-white/5 text-farm-olive dark:text-farm-cream hover:bg-farm-olive/10 dark:hover:bg-white/10 transition-all"
-            >
-              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-
-            {/* Profile Button */}
-            {user && (
-              <button 
-                onClick={() => {
-                  setEditingProfile(currentUserProfile || {
-                    userId: user.uid,
-                    displayName: user.displayName || '',
-                    role: 'farmer',
-                    reliabilityScore: 5.0,
-                    totalSales: 0,
-                    photoUrl: user.photoURL || '',
-                    bio: '',
-                    locationName: 'Niğde'
-                  });
-                  setShowProfileSettings(true);
-                }}
-                className="p-2 rounded-full bg-farm-olive/5 dark:bg-white/5 text-farm-olive dark:text-farm-cream hover:bg-farm-olive/10 dark:hover:bg-white/10 transition-all"
-              >
-                <UserIcon size={18} />
-              </button>
-            )}
-
-            {/* Language Toggle */}
-            <div className="hidden sm:flex items-center gap-2 bg-farm-olive/5 dark:bg-white/5 p-1 rounded-full border border-farm-olive/10 dark:border-white/5">
-              {(['tr', 'en', 'de'] as const).map(lang => (
-                <button
-                  key={lang}
-                  onClick={() => setLanguage(lang)}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-[10px] font-bold uppercase transition-all",
-                    language === lang ? "bg-farm-olive text-white shadow-sm" : "text-farm-olive/40 dark:text-zinc-500 hover:text-farm-olive dark:hover:text-farm-cream"
-                  )}
-                >
-                  {lang}
-                </button>
-              ))}
-            </div>
-            
-            {/* Mobile Menu Toggle */}
-            <button className="lg:hidden p-2 text-farm-olive dark:text-farm-cream" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-              {isMenuOpen ? <X /> : <Menu />}
-            </button>
-          </div>
-        </div>
-
-        {/* Weather Alerts Banner */}
-        <AnimatePresence>
-          {weatherAlerts.length > 0 && (
-            <motion.div 
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="bg-red-500 text-white overflow-hidden"
-            >
-              <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <AlertTriangle size={16} className="animate-pulse" />
-                  <span>{weatherAlerts[0].message}</span>
-                </div>
-                <button onClick={() => setWeatherAlerts([])} className="p-1 hover:bg-white/20 rounded">
-                  <X size={14} />
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Mobile Nav */}
-        <AnimatePresence>
-          {isMenuOpen && (
-            <motion.nav
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="lg:hidden bg-farm-cream dark:bg-zinc-900 border-b border-farm-olive/10 dark:border-white/5 overflow-hidden"
-            >
-              <div className="flex flex-col p-4 gap-4">
-                {navLinks.map(link => (
-                  <a
-                    key={link.id}
-                    href={`#${link.id}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setActiveSection(link.id);
-                      scrollToSection(link.id);
-                      setIsMenuOpen(false);
-                    }}
-                    className={cn(
-                      "text-lg font-medium transition-colors",
-                      activeSection === link.id ? "text-farm-olive dark:text-farm-cream" : "text-gray-600 dark:text-zinc-400"
-                    )}
-                  >
-                    {link.label}
-                  </a>
-                ))}
-              </div>
-            </motion.nav>
-          )}
-        </AnimatePresence>
-      </header>
+      <Header 
+        user={user}
+        activeSection={activeSection}
+        setActiveSection={setActiveSection}
+        isMenuOpen={isMenuOpen}
+        setIsMenuOpen={setIsMenuOpen}
+        isDarkMode={isDarkMode}
+        setIsDarkMode={setIsDarkMode}
+        language={language}
+        setLanguage={setLanguage}
+        weatherAlerts={weatherAlerts}
+        setWeatherAlerts={setWeatherAlerts}
+        scrollToSection={scrollToSection}
+        navLinks={navLinks}
+        setShowProfileSettings={setShowProfileSettings}
+        setEditingProfile={setEditingProfile}
+        currentUserProfile={currentUserProfile}
+      />
 
       {/* Profile Settings Modal */}
       <AnimatePresence>
@@ -1777,9 +1722,20 @@ export default function App() {
                 </div>
               </div>
               {aiWeatherAdvice && (
-                <div className="bg-white/10 p-3 rounded-xl text-xs font-light italic border border-white/10">
-                  <Sparkles size={12} className="inline mr-1 text-yellow-300" />
-                  {aiWeatherAdvice}
+                <div className="bg-white/10 p-3 rounded-xl text-xs font-light italic border border-white/10 group">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-grow">
+                      <Sparkles size={12} className="inline mr-1 text-yellow-300" />
+                      {aiWeatherAdvice}
+                    </div>
+                    <button 
+                      onClick={() => handleTextToSpeech(aiWeatherAdvice)}
+                      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                      title="Sesli Dinle"
+                    >
+                      <Bot size={12} />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -2097,7 +2053,102 @@ export default function App() {
           </div>
         </section>
 
-        {/* Crop Calendar Section */}
+        {/* Farmer's Journal Section */}
+        <section id="gunluk" className="py-24 bg-white dark:bg-zinc-950">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex flex-col md:flex-row justify-between items-end gap-8 mb-16">
+              <div className="max-w-2xl">
+                <h2 className="text-5xl serif text-farm-olive dark:text-farm-cream mb-6">Çiftçi Günlüğü</h2>
+                <p className="text-gray-500 dark:text-zinc-400 leading-relaxed">
+                  Tarladaki her anı, her emeği kayıt altına alıyoruz. Geçmiş tecrübelerimiz, gelecekteki bereketimizin anahtarıdır.
+                </p>
+              </div>
+              <div className="flex gap-4">
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-farm-olive dark:text-farm-cream">{harvestEvents.length}</div>
+                  <div className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Toplam Kayıt</div>
+                </div>
+                <div className="w-px h-12 bg-farm-olive/10 dark:bg-white/10" />
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-farm-olive dark:text-farm-cream">{cropCycles.length}</div>
+                  <div className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Aktif Döngü</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid lg:grid-cols-3 gap-12">
+              <div className="lg:col-span-2 space-y-8">
+                {harvestEvents.slice(0, 5).map((event, i) => (
+                  <motion.div 
+                    key={event.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className="relative pl-12 pb-12 border-l border-farm-olive/10 dark:border-white/10 last:pb-0"
+                  >
+                    <div className="absolute left-[-9px] top-0 w-4 h-4 rounded-full bg-farm-olive dark:bg-farm-cream border-4 border-white dark:border-zinc-950 shadow-sm" />
+                    <div className="bg-farm-cream/30 dark:bg-white/5 p-8 rounded-[32px] border border-farm-olive/5 dark:border-white/5 hover:border-farm-olive/20 transition-all group">
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-farm-olive dark:text-farm-cream opacity-60">{months[event.month]} 2026</span>
+                          <h3 className="text-xl font-bold text-gray-800 dark:text-zinc-100 mt-1">{event.cropName} {event.action === 'planting' ? 'Ekimi' : 'Hasadı'}</h3>
+                        </div>
+                        <div className="w-10 h-10 bg-white dark:bg-zinc-800 rounded-xl flex items-center justify-center shadow-sm text-farm-olive dark:text-farm-cream group-hover:scale-110 transition-transform">
+                          {event.action === 'planting' ? <SproutIcon size={20} /> : <TrendingUp size={20} />}
+                        </div>
+                      </div>
+                      <p className="text-gray-500 dark:text-zinc-400 text-sm leading-relaxed mb-6">{event.description || 'Bu dönem için detaylı not girilmemiş.'}</p>
+                      <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                        <span className="flex items-center gap-1"><UserIcon size={12} /> {event.userName}</span>
+                        <span className="flex items-center gap-1"><Clock size={12} /> {new Date(event.createdAt).toLocaleDateString('tr-TR')}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              <div className="space-y-8">
+                <div className="bg-farm-olive text-white p-8 rounded-[40px] shadow-xl relative overflow-hidden group">
+                  <div className="absolute top-[-20px] right-[-20px] w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+                  <BookOpen size={48} className="mb-6 opacity-20" />
+                  <h3 className="text-2xl serif mb-4">Günlük Tutun</h3>
+                  <p className="text-white/70 text-sm leading-relaxed mb-8">
+                    Tarlanızdaki her gelişmeyi not edin. Hangi gübreyi ne zaman attınız? Hangi tohum daha iyi sonuç verdi? Hepsini kaydedin.
+                  </p>
+                  <button 
+                    onClick={() => {
+                      setActiveSection('profil');
+                      scrollToSection('profil');
+                    }}
+                    className="w-full bg-white text-farm-olive py-4 rounded-2xl font-bold hover:bg-farm-cream transition-all"
+                  >
+                    Yeni Kayıt Ekle
+                  </button>
+                </div>
+
+                <div className="bg-white dark:bg-zinc-900 p-8 rounded-[40px] border border-farm-olive/10 dark:border-white/5">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-6">Önemli Hatırlatmalar</h4>
+                  <div className="space-y-6">
+                    {[
+                      { title: 'Gübreleme Zamanı', desc: 'Patates tarlası için azotlu gübreleme yaklaşıyor.', date: '15 Nisan' },
+                      { title: 'Sulama Kontrolü', desc: 'Hava sıcaklığı artıyor, sulama sistemini kontrol et.', date: 'Yarın' },
+                      { title: 'Hasat Hazırlığı', desc: 'Buğdaylar için biçerdöver sırası alınmalı.', date: 'Haziran Sonu' }
+                    ].map((note, i) => (
+                      <div key={i} className="flex gap-4">
+                        <div className="w-1 h-12 bg-farm-olive/20 dark:bg-white/10 rounded-full" />
+                        <div>
+                          <h5 className="text-sm font-bold text-gray-800 dark:text-zinc-200">{note.title}</h5>
+                          <p className="text-xs text-gray-500 dark:text-zinc-500 mt-1">{note.desc}</p>
+                          <span className="text-[10px] font-bold text-farm-olive dark:text-farm-cream mt-2 block">{note.date}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
         <section id="takvim" className="py-24 bg-farm-cream dark:bg-zinc-950">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
@@ -2153,6 +2204,29 @@ export default function App() {
                 );
               })}
             </div>
+          </div>
+        </section>
+
+        {/* Farmer's Journal Section */}
+        <section id="gunluk" className="py-24 bg-white dark:bg-zinc-900 transition-colors">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
+              <div className="max-w-2xl">
+                <h2 className="text-5xl serif text-farm-olive dark:text-farm-cream mb-4 italic">Çiftçi Günlüğü</h2>
+                <p className="text-gray-500 dark:text-zinc-400 text-lg leading-relaxed">
+                  Tarlamızdaki her adımın, her filizin ve her hasadın hikayesi. 
+                  Toprakla olan bağımızı kronolojik olarak takip edin.
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowProfileSettings(true)}
+                className="bg-farm-olive text-white px-8 py-4 rounded-2xl font-bold hover:bg-farm-olive/90 transition-all flex items-center gap-2 shadow-lg hover:shadow-farm-olive/20"
+              >
+                <Plus size={20} /> Yeni Günlük Girişi
+              </button>
+            </div>
+            
+            <FarmerJournal events={harvestEvents} />
           </div>
         </section>
 
@@ -2227,7 +2301,7 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <div className="bg-farm-cream/50 dark:bg-zinc-950/50 rounded-[40px] p-8 shadow-inner border border-farm-olive/5">
+            <div className="bg-farm-cream/50 dark:bg-zinc-950/50 rounded-[40px] p-8 shadow-inner border border-farm-olive/5 mb-12">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {cropPrices.filter(p => p.city === priceCity).length > 0 ? cropPrices.filter(p => p.city === priceCity).map(price => (
                   <div key={price.id} className="bg-white p-6 rounded-2xl shadow-sm flex flex-col gap-4 relative group">
@@ -2274,6 +2348,20 @@ export default function App() {
               </div>
             </div>
 
+            {/* Live Market Dashboard */}
+            <div className="mb-24">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-12 h-12 bg-farm-olive rounded-2xl flex items-center justify-center text-white shadow-lg">
+                  <BarChart3 size={24} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800 dark:text-zinc-100">Canlı Piyasa Paneli</h3>
+                  <p className="text-sm text-gray-500">Gerçek zamanlı borsa verileri ve trend analizleri</p>
+                </div>
+              </div>
+              <MarketDashboard cropPrices={cropPrices.filter(p => p.city === priceCity)} />
+            </div>
+
             {/* AI Consultant & Live Stock */}
             <div className="grid lg:grid-cols-2 gap-12 mt-24">
               {/* AI Consultant & Disease Analysis */}
@@ -2314,8 +2402,17 @@ export default function App() {
                         <motion.div 
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20"
+                          className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20 group"
                         >
+                          <div className="flex justify-between items-start gap-4 mb-2">
+                            <div className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Danışman Yanıtı</div>
+                            <button 
+                              onClick={() => handleTextToSpeech(aiResponse)}
+                              className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-all opacity-0 group-hover:opacity-100 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+                            >
+                              <Bot size={14} /> Dinle
+                            </button>
+                          </div>
                           <div className="leading-relaxed text-sm prose prose-invert max-w-none">
                             <ReactMarkdown>{aiResponse}</ReactMarkdown>
                           </div>
@@ -2802,6 +2899,10 @@ export default function App() {
                     { id: 'ai', label: 'AI Danışmanı', icon: Bot },
                     { id: 'map', label: 'Hastalık Haritası', icon: MapPin },
                     { id: 'soil', label: 'Toprak Analizi', icon: FileText },
+                    { id: 'hasat', label: 'Hasat Tahmini', icon: Zap },
+                    { id: 'sulama', label: 'Sulama Planı', icon: Droplets },
+                    { id: 'don', label: 'Don Uyarısı', icon: AlertTriangle },
+                    { id: 'ilaclama', label: 'İlaçlama Rehberi', icon: FlaskConical },
                   ].map(tab => (
                     <button
                       key={tab.id}
@@ -2842,7 +2943,7 @@ export default function App() {
                           <select 
                             className="w-full bg-white dark:bg-zinc-900 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-farm-olive"
                             value={expenseForm.category}
-                            onChange={(e) => setExpenseForm({...expenseForm, category: e.target.value})}
+                            onChange={(e) => setExpenseForm({...expenseForm, category: e.target.value as Expense['category']})}
                           >
                             <option value="yakit">Yakıt</option>
                             <option value="gubre">Gübre</option>
@@ -3101,62 +3202,87 @@ export default function App() {
                   {farmerToolTab === 'map' && (
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
                       <div>
-                        <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-2">Hastalık Alarm Haritası</h3>
-                        <p className="text-gray-500 text-sm">Bölgenizdeki güncel hastalık ve zararlı uyarılarını takip edin.</p>
+                        <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-2">Hastalık Haritası & Teşhis</h3>
+                        <p className="text-gray-500 text-sm">Bitkilerinizdeki hastalıkları AI ile teşhis edin ve bölgenizdeki riskleri görün.</p>
                       </div>
 
-                      <div className="aspect-video bg-zinc-100 dark:bg-zinc-800 rounded-[40px] relative overflow-hidden border border-farm-olive/10 group">
-                        {/* Placeholder for real map integration */}
-                        <div className="absolute inset-0 bg-[url('https://picsum.photos/seed/map/1200/800')] bg-cover bg-center opacity-40 grayscale group-hover:grayscale-0 transition-all duration-700" />
-                        <div className="absolute inset-0 bg-gradient-to-br from-farm-olive/20 to-transparent" />
-                        
-                        {/* Simulated Map Markers */}
-                        <div className="absolute top-1/4 left-1/3 group/marker">
-                          <div className="w-4 h-4 bg-red-500 rounded-full animate-ping absolute" />
-                          <div className="w-4 h-4 bg-red-500 rounded-full relative shadow-lg cursor-pointer" />
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-48 bg-white dark:bg-zinc-900 p-4 rounded-2xl shadow-2xl opacity-0 group-hover/marker:opacity-100 transition-all pointer-events-none border border-red-500/20">
-                            <div className="text-xs font-bold text-red-500 uppercase mb-1">Yüksek Risk</div>
-                            <div className="text-sm font-bold text-farm-olive dark:text-farm-cream">Mildiyö Hastalığı</div>
-                            <p className="text-[10px] text-gray-500 mt-1">Nemli hava nedeniyle Serik bölgesinde yayılım riski.</p>
+                      <div className="grid md:grid-cols-2 gap-8">
+                        <div className="bg-farm-cream dark:bg-zinc-800/50 p-8 rounded-[32px] border border-farm-olive/10">
+                          <h4 className="font-bold mb-4 flex items-center gap-2 text-farm-olive dark:text-farm-cream">
+                            <Camera size={20} /> Yeni Teşhis
+                          </h4>
+                          <div className="space-y-4">
+                            <div className="aspect-video bg-white dark:bg-zinc-900 rounded-2xl border-2 border-dashed border-farm-olive/20 flex items-center justify-center overflow-hidden relative">
+                              {diseaseImage ? (
+                                <img src={diseaseImage} alt="Hastalık" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="text-center p-6">
+                                  <ImageIcon size={48} className="mx-auto mb-4 text-farm-olive/20" />
+                                  <p className="text-sm text-gray-400">Bitkinin hasta bölgesinin fotoğrafını yükleyin</p>
+                                </div>
+                              )}
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const url = await handleFileUpload(file, 'diseases');
+                                    setDiseaseImage(url);
+                                  }
+                                }}
+                              />
+                            </div>
+                            <button 
+                              onClick={async () => {
+                                if (!diseaseImage) return;
+                                setIsAnalyzing(true);
+                                try {
+                                  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+                                  const response = await ai.models.generateContent({
+                                    model: "gemini-2.5-flash-preview-tts",
+                                    contents: {
+                                      parts: [
+                                        { inlineData: { data: diseaseImage.split(',')[1], mimeType: 'image/jpeg' } },
+                                        { text: "Bu bitki hastalığını teşhis et. Nedenini ve çözüm önerilerini (ilaçlama, doğal yöntemler) söyle." }
+                                      ]
+                                    }
+                                  });
+                                  setAnalysisResult(response.text);
+                                  await addDoc(collection(db, 'diseaseAnalysis'), {
+                                    imageUrl: diseaseImage,
+                                    result: response.text,
+                                    userId: user.uid,
+                                    createdAt: new Date().toISOString()
+                                  });
+                                } catch (err) {
+                                  toast.error("Teşhis sırasında bir hata oluştu.");
+                                } finally {
+                                  setIsAnalyzing(false);
+                                }
+                              }}
+                              disabled={!diseaseImage || isAnalyzing}
+                              className="w-full bg-farm-olive text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                              {isAnalyzing ? <Zap className="animate-spin" /> : <Sparkles size={20} />}
+                              {isAnalyzing ? "Analiz Ediliyor..." : "AI ile Teşhis Koy"}
+                            </button>
                           </div>
                         </div>
 
-                        <div className="absolute top-1/2 left-2/3 group/marker">
-                          <div className="w-4 h-4 bg-yellow-500 rounded-full animate-ping absolute" />
-                          <div className="w-4 h-4 bg-yellow-500 rounded-full relative shadow-lg cursor-pointer" />
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-48 bg-white dark:bg-zinc-900 p-4 rounded-2xl shadow-2xl opacity-0 group-hover/marker:opacity-100 transition-all pointer-events-none border border-yellow-500/20">
-                            <div className="text-xs font-bold text-yellow-500 uppercase mb-1">Orta Risk</div>
-                            <div className="text-sm font-bold text-farm-olive dark:text-farm-cream">Kırmızı Örümcek</div>
-                            <p className="text-[10px] text-gray-500 mt-1">Sıcaklık artışı ile birlikte popülasyon artışı gözleniyor.</p>
-                          </div>
-                        </div>
-
-                        <div className="absolute bottom-12 right-12 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md p-4 rounded-2xl border border-white/20 shadow-xl">
-                          <div className="text-xs font-bold uppercase tracking-widest text-farm-olive/40 mb-3">Lejant</div>
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-[10px] font-bold text-gray-600 dark:text-zinc-400">
-                              <div className="w-2 h-2 bg-red-500 rounded-full" /> Yüksek Risk / Acil Önlem
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] font-bold text-gray-600 dark:text-zinc-400">
-                              <div className="w-2 h-2 bg-yellow-500 rounded-full" /> Orta Risk / İzleme
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] font-bold text-gray-600 dark:text-zinc-400">
-                              <div className="w-2 h-2 bg-green-500 rounded-full" /> Düşük Risk / Güvenli
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="bg-farm-olive/5 dark:bg-white/5 p-6 rounded-3xl border border-farm-olive/10">
-                        <div className="flex items-start gap-4">
-                          <div className="w-10 h-10 bg-farm-olive text-white rounded-xl flex items-center justify-center flex-shrink-0">
-                            <AlertTriangle size={20} />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-farm-olive dark:text-farm-cream mb-1">Bölgesel Uyarı Sistemi</h4>
-                            <p className="text-sm text-gray-600 dark:text-zinc-400 leading-relaxed">
-                              Bu harita, bölgedeki ziraat mühendisleri ve diğer çiftçilerden gelen verilerle anlık olarak güncellenmektedir. Kendi tarlanızda bir hastalık gözlemlerseniz lütfen topluluk kısmından paylaşın.
-                            </p>
+                        <div className="space-y-6">
+                          <h4 className="font-bold text-farm-olive dark:text-farm-cream px-2">Geçmiş Teşhisler</h4>
+                          <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                            {diseaseAnalyses.map(analysis => (
+                              <div key={analysis.id} className="bg-white dark:bg-zinc-800 p-4 rounded-2xl border border-farm-olive/5 flex gap-4">
+                                <img src={analysis.imageUrl} alt="Teşhis" className="w-20 h-20 rounded-xl object-cover" />
+                                <div className="flex-grow">
+                                  <p className="text-[10px] text-gray-400 mb-1">{new Date(analysis.createdAt).toLocaleDateString('tr-TR')}</p>
+                                  <p className="text-xs line-clamp-2 text-gray-600 dark:text-zinc-400">{analysis.result}</p>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </div>
@@ -3164,70 +3290,303 @@ export default function App() {
                   )}
 
                   {farmerToolTab === 'soil' && (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-2">Toprak Analizi Raporları</h3>
-                          <p className="text-gray-500 text-sm">Analiz raporlarınızı yükleyin, AI ile yorumlayın.</p>
-                        </div>
-                        <label className="bg-farm-olive text-white px-8 py-3 rounded-2xl font-bold cursor-pointer hover:bg-farm-olive/90 transition-all flex items-center gap-2 shadow-lg shadow-farm-olive/20">
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+                      <div>
+                        <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-2">Toprak Analizi Raporları</h3>
+                        <p className="text-gray-500 text-sm">Laboratuvar sonuçlarınızı yükleyin, AI sizin için yorumlasın.</p>
+                      </div>
+
+                      <form onSubmit={handleSoilAnalysisUpload} className="bg-farm-cream dark:bg-zinc-800/50 p-8 rounded-[32px] border border-farm-olive/10">
+                        <div className="space-y-4">
                           <input 
-                            type="file" 
-                            className="hidden" 
-                            accept="image/*,application/pdf"
-                            onChange={(e) => e.target.files?.[0] && handleSoilAnalysisUpload(e.target.files[0])}
-                            disabled={isAnalyzing}
+                            type="text" 
+                            placeholder="Rapor Bağlantısı (URL) veya Dosya Adı"
+                            className="w-full bg-white dark:bg-zinc-900 border-none rounded-xl px-4 py-3 text-sm"
+                            value={newSoilAnalysis.reportUrl}
+                            onChange={(e) => setNewSoilAnalysis({...newSoilAnalysis, reportUrl: e.target.value})}
+                            required
                           />
-                          {isAnalyzing ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Upload size={20} />}
-                          Rapor Yükle
+                          <button 
+                            type="submit" 
+                            disabled={isAnalyzing}
+                            className="w-full bg-farm-olive text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2"
+                          >
+                            {isAnalyzing ? <Zap className="animate-spin" /> : <FileText size={20} />}
+                            Analizi Kaydet ve Yorumla
+                          </button>
+                        </div>
+                      </form>
+
+                      <div className="grid gap-8">
+                        {soilReports.map(report => (
+                          <div key={report.id} className="space-y-6">
+                            <div className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-farm-olive/5">
+                              <div className="flex justify-between items-start mb-4">
+                                <span className="text-xs font-bold text-farm-olive/40">{new Date(report.createdAt).toLocaleDateString('tr-TR')}</span>
+                                <button onClick={() => handleDelete('soilAnalysis', report.id)} className="text-red-400"><Trash2 size={16} /></button>
+                              </div>
+                              <div className="prose prose-sm dark:prose-invert max-w-none">
+                                <ReactMarkdown>{report.analysisResult}</ReactMarkdown>
+                              </div>
+                            </div>
+                            
+                            {/* Advanced Soil Charts */}
+                            <SoilAnalysisCharts analysis={report} />
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {farmerToolTab === 'hasat' && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+                      <div>
+                        <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-2">Hasat Tahmini</h3>
+                        <p className="text-gray-500 text-sm">Mahsulünüzün fotoğrafını çekin, ne zaman hasat edeceğinizi öğrenin.</p>
+                      </div>
+
+                      <div className="bg-farm-cream dark:bg-zinc-800/50 p-8 rounded-[32px] border border-farm-olive/10 text-center">
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          id="harvest-upload" 
+                          className="hidden" 
+                          onChange={(e) => e.target.files?.[0] && handleHarvestPrediction(e.target.files[0])}
+                        />
+                        <label htmlFor="harvest-upload" className="cursor-pointer block">
+                          <div className="w-20 h-20 bg-farm-olive/10 rounded-full flex items-center justify-center text-farm-olive mx-auto mb-4">
+                            <Camera size={32} />
+                          </div>
+                          <p className="font-bold text-farm-olive dark:text-farm-cream">Fotoğraf Yükle ve Analiz Et</p>
                         </label>
                       </div>
 
                       <div className="grid gap-6">
-                        {soilReports.length > 0 ? soilReports.map(report => (
-                          <div key={report.id} className="bg-farm-cream/30 dark:bg-zinc-800/30 p-8 rounded-[40px] border border-farm-olive/5">
-                            <div className="flex flex-col md:flex-row gap-8">
-                              <div className="md:w-48 aspect-[3/4] bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-md border border-farm-olive/10 flex-shrink-0">
-                                {report.reportUrl.endsWith('.pdf') ? (
-                                  <div className="w-full h-full flex items-center justify-center text-red-500">
-                                    <FileText size={64} />
-                                  </div>
-                                ) : (
-                                  <img src={report.reportUrl} alt="Report" className="w-full h-full object-cover" />
-                                )}
+                        {harvestPredictions.map(pred => (
+                          <div key={pred.id} className="bg-white dark:bg-zinc-800 rounded-3xl overflow-hidden border border-farm-olive/5 flex flex-col md:flex-row">
+                            <img src={pred.imageUrl} alt="Hasat" className="md:w-48 h-48 object-cover" />
+                            <div className="p-6 flex-grow">
+                              <div className="flex justify-between items-start mb-2">
+                                <h4 className="font-bold text-farm-olive dark:text-farm-cream">{pred.cropType}</h4>
+                                <span className="text-xs text-gray-400">{new Date(pred.createdAt).toLocaleDateString('tr-TR')}</span>
                               </div>
-                              <div className="flex-grow">
-                                <div className="flex justify-between items-start mb-6">
-                                  <div>
-                                    <div className="text-xs font-bold text-farm-olive/40 uppercase tracking-widest mb-1">Analiz Tarihi</div>
-                                    <div className="text-lg font-bold text-farm-olive dark:text-farm-cream">{new Date(report.createdAt).toLocaleDateString('tr-TR')}</div>
-                                  </div>
-                                  <button 
-                                    onClick={() => handleDelete('soilReports', report.id, report.userId)}
-                                    className="text-red-400 hover:text-red-600 transition-colors"
-                                  >
-                                    <Trash2 size={24} />
-                                  </button>
-                                </div>
-                                
-                                <div className="bg-white/50 dark:bg-zinc-900/50 p-6 rounded-3xl border border-white dark:border-white/5">
-                                  <h5 className="font-bold text-farm-olive dark:text-farm-cream mb-4 flex items-center gap-2">
-                                    <Bot size={20} className="text-farm-olive" /> AI Analiz Özeti & Tavsiyeler
-                                  </h5>
-                                  <div className="text-sm text-gray-600 dark:text-zinc-400 leading-relaxed prose dark:prose-invert max-w-none">
-                                    <ReactMarkdown>{report.analysisResult}</ReactMarkdown>
-                                  </div>
-                                </div>
+                              <p className="text-sm text-farm-olive/60 mb-4 font-medium">{pred.maturityLevel}</p>
+                              <div className="text-sm text-gray-600 dark:text-zinc-400 italic">
+                                <ReactMarkdown>{pred.recommendation}</ReactMarkdown>
                               </div>
                             </div>
                           </div>
-                        )) : (
-                          <div className="text-center py-24 bg-farm-olive/5 dark:bg-white/5 rounded-[48px] border-2 border-dashed border-farm-olive/10">
-                            <FileText size={64} className="text-farm-olive/20 mx-auto mb-6" />
-                            <h4 className="text-xl font-bold text-farm-olive/40">Henüz Rapor Yüklenmedi</h4>
-                            <p className="text-gray-400 mt-2">Toprak analizi raporunuzu yükleyerek AI destekli gübreleme tavsiyesi alın.</p>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {farmerToolTab === 'sulama' && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+                      <div>
+                        <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-2">Akıllı Sulama Planı</h3>
+                        <p className="text-gray-500 text-sm">Hava durumu ve toprak tipine göre optimize edilmiş sulama takvimi.</p>
+                      </div>
+
+                      <div className="grid md:grid-cols-3 gap-4 bg-farm-cream dark:bg-zinc-800/50 p-6 rounded-3xl border border-farm-olive/10">
+                        <input 
+                          type="text" 
+                          placeholder="Ürün (Örn: Patates)"
+                          className="bg-white dark:bg-zinc-900 border-none rounded-xl px-4 py-3 text-sm"
+                          value={newPlanInput.cropType}
+                          onChange={(e) => setNewPlanInput({...newPlanInput, cropType: e.target.value})}
+                        />
+                        <input 
+                          type="number" 
+                          placeholder="Alan (Dönüm)"
+                          className="bg-white dark:bg-zinc-900 border-none rounded-xl px-4 py-3 text-sm"
+                          value={newPlanInput.fieldSize || ''}
+                          onChange={(e) => setNewPlanInput({...newPlanInput, fieldSize: Number(e.target.value)})}
+                        />
+                        <button 
+                          onClick={handleGenerateIrrigationPlan}
+                          disabled={isGeneratingPlan}
+                          className="bg-farm-olive text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2"
+                        >
+                          {isGeneratingPlan ? <Zap className="animate-spin" /> : <Droplets size={18} />}
+                          Plan Oluştur
+                        </button>
+                      </div>
+
+                      <div className="space-y-6">
+                        {irrigationPlans.map(plan => (
+                          <div key={plan.id} className="bg-white dark:bg-zinc-800 p-8 rounded-[32px] border border-farm-olive/5">
+                            <div className="flex justify-between items-center mb-6">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center text-blue-500">
+                                  <Droplets size={20} />
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-farm-olive dark:text-farm-cream">{plan.cropType} Planı</h4>
+                                  <p className="text-xs text-gray-400">{plan.fieldSize} Dönüm • {new Date(plan.createdAt).toLocaleDateString('tr-TR')}</p>
+                                </div>
+                              </div>
+                              <button onClick={() => handleDelete('irrigationPlans', plan.id)} className="text-red-400"><Trash2 size={18} /></button>
+                            </div>
+                            <div className="prose prose-sm dark:prose-invert max-w-none bg-farm-cream/30 dark:bg-white/5 p-6 rounded-2xl">
+                              <ReactMarkdown>{plan.plan}</ReactMarkdown>
+                            </div>
                           </div>
-                        )}
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {farmerToolTab === 'don' && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+                      <div>
+                        <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-2">Zirai Don Uyarı Sistemi</h3>
+                        <p className="text-gray-500 text-sm">Anlık hava durumu verileriyle mahsulünüzü koruyun.</p>
+                      </div>
+
+                      <div className={cn(
+                        "p-12 rounded-[48px] text-center border-2 transition-all",
+                        weather && weather.temp <= 2 
+                          ? "bg-red-500/10 border-red-500/20 text-red-600" 
+                          : "bg-green-500/10 border-green-500/20 text-green-600"
+                      )}>
+                        <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 bg-white shadow-xl">
+                          {weather && weather.temp <= 2 ? (
+                            <AlertTriangle size={48} className="text-red-500 animate-pulse" />
+                          ) : (
+                            <Sun size={48} className="text-green-500" />
+                          )}
+                        </div>
+                        <h4 className="text-4xl font-bold mb-4">
+                          {weather ? `${weather.temp}°C` : '--°C'}
+                        </h4>
+                        <p className="text-xl font-medium mb-8">
+                          {weather && weather.temp <= 2 
+                            ? "DİKKAT: Zirai Don Riski Yüksek!" 
+                            : "Şu an için don riski bulunmuyor."}
+                        </p>
+                        <div className="grid md:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                          <div className="bg-white/50 p-6 rounded-3xl">
+                            <span className="block text-xs uppercase font-bold opacity-60 mb-1">Nem Oranı</span>
+                            <span className="text-2xl font-bold">{weather?.humidity || 0}%</span>
+                          </div>
+                          <div className="bg-white/50 p-6 rounded-3xl">
+                            <span className="block text-xs uppercase font-bold opacity-60 mb-1">Rüzgar Hızı</span>
+                            <span className="text-2xl font-bold">{weather?.windSpeed || 0} km/s</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white dark:bg-zinc-800 p-8 rounded-[32px] border border-farm-olive/5">
+                        <h5 className="font-bold mb-4 flex items-center gap-2">
+                          <Zap size={18} className="text-yellow-500" /> Don Önleme Tavsiyeleri
+                        </h5>
+                        <ul className="space-y-3 text-sm text-gray-600 dark:text-zinc-400">
+                          <li className="flex items-start gap-3">
+                            <div className="w-1.5 h-1.5 rounded-full bg-farm-olive mt-1.5 shrink-0" />
+                            <span>Toprak nemini korumak için hafif sulama yapın.</span>
+                          </li>
+                          <li className="flex items-start gap-3">
+                            <div className="w-1.5 h-1.5 rounded-full bg-farm-olive mt-1.5 shrink-0" />
+                            <span>Hassas fidelerin üzerini örtü altı sistemlerle kapatın.</span>
+                          </li>
+                          <li className="flex items-start gap-3">
+                            <div className="w-1.5 h-1.5 rounded-full bg-farm-olive mt-1.5 shrink-0" />
+                            <span>Dumanlama veya rüzgar makinelerini aktif hale getirin.</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {farmerToolTab === 'ilaclama' && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+                      <div>
+                        <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-2">İlaçlama Rehberi & Takvimi</h3>
+                        <p className="text-gray-500 text-sm">Hangi ürüne, ne zaman ve hangi dozda ilaçlama yapmanız gerektiğini öğrenin.</p>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-8">
+                        <div className="bg-farm-cream dark:bg-zinc-800/50 p-8 rounded-[32px] border border-farm-olive/10">
+                          <h4 className="font-bold mb-6 flex items-center gap-2 text-farm-olive dark:text-farm-cream">
+                            <FlaskConical size={20} /> Hızlı Bilgi Al
+                          </h4>
+                          <div className="space-y-4">
+                            <p className="text-sm text-gray-600 dark:text-zinc-400 mb-4">
+                              Ürününüzü ve karşılaştığınız sorunu yazın, AI size en uygun ilaçlama programını çıkarsın.
+                            </p>
+                            <div className="space-y-4">
+                              <input 
+                                type="text" 
+                                placeholder="Ürün (Örn: Domates)"
+                                className="w-full bg-white dark:bg-zinc-900 border-none rounded-xl px-4 py-3 text-sm"
+                                id="spray-crop"
+                              />
+                              <textarea 
+                                placeholder="Sorun veya Zararlı (Örn: Yaprak Biti)"
+                                className="w-full bg-white dark:bg-zinc-900 border-none rounded-xl px-4 py-3 text-sm min-h-[100px]"
+                                id="spray-issue"
+                              ></textarea>
+                              <button 
+                                onClick={async () => {
+                                  const crop = (document.getElementById('spray-crop') as HTMLInputElement).value;
+                                  const issue = (document.getElementById('spray-issue') as HTMLTextAreaElement).value;
+                                  if (!crop || !issue) {
+                                    toast.error("Lütfen ürün ve sorun bilgilerini girin.");
+                                    return;
+                                  }
+                                  setIsChatting(true);
+                                  try {
+                                    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+                                    const response = await ai.models.generateContent({
+                                      model: "gemini-2.5-flash-preview-tts",
+                                      contents: `Tarımsal ilaçlama uzmanı olarak yanıtla. ${crop} ürününde görülen ${issue} için ilaçlama takvimi, dozaj ve güvenlik önlemleri (bekleme süresi vb.) hakkında detaylı bilgi ver.`
+                                    });
+                                    setAnalysisResult(response.text);
+                                    // Open AI tab to show result or show in a modal
+                                    setFarmerToolTab('ai');
+                                    setChatMessages(prev => [...prev, {
+                                      id: Date.now().toString(),
+                                      userId: user?.uid || 'anonymous',
+                                      role: 'model',
+                                      content: response.text,
+                                      createdAt: new Date().toISOString()
+                                    }]);
+                                  } catch (err) {
+                                    toast.error("Bilgi alınırken bir hata oluştu.");
+                                  } finally {
+                                    setIsChatting(false);
+                                  }
+                                }}
+                                className="w-full bg-farm-olive text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2"
+                              >
+                                <Sparkles size={20} /> Rehber Oluştur
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-white dark:bg-zinc-800 p-8 rounded-[32px] border border-farm-olive/5">
+                          <h4 className="font-bold mb-6 text-farm-olive dark:text-farm-cream">Genel İlaçlama Kuralları</h4>
+                          <div className="space-y-4">
+                            {[
+                              { title: "Rüzgar Hızı", desc: "İlaçlama yaparken rüzgar hızının 15 km/s altında olduğundan emin olun." },
+                              { title: "Sıcaklık", desc: "Günün en sıcak saatlerinde ilaçlama yapmaktan kaçının (Sabah erken veya akşam üzeri)." },
+                              { title: "Ekipman", desc: "Her zaman koruyucu maske, eldiven ve gözlük kullanın." },
+                              { title: "Bekleme Süresi", desc: "İlaçlama ile hasat arasındaki süreye (PHI) mutlaka uyun." }
+                            ].map((rule, i) => (
+                              <div key={i} className="flex gap-4">
+                                <div className="w-8 h-8 rounded-lg bg-farm-olive/10 flex items-center justify-center text-farm-olive shrink-0 font-bold text-xs">
+                                  {i + 1}
+                                </div>
+                                <div>
+                                  <h5 className="font-bold text-sm mb-1">{rule.title}</h5>
+                                  <p className="text-xs text-gray-500">{rule.desc}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </motion.div>
                   )}
@@ -3775,17 +4134,6 @@ export default function App() {
                         ))}
                       </div>
                     </div>
-                    <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                      <p className="text-sm font-bold mb-3">Sulama Planları ({irrigationPlans.length})</p>
-                      <div className="max-h-40 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                        {irrigationPlans.map(plan => (
-                          <div key={plan.id} className="flex items-center justify-between text-xs p-2 bg-white/5 rounded-lg">
-                            <span className="truncate mr-2">{plan.cropType} ({plan.fieldSize} dönüm)</span>
-                            <button onClick={() => handleDelete('irrigationPlans', plan.id!)} className="text-red-400 hover:text-red-300"><Trash2 size={14} /></button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 </div>
 
@@ -4251,24 +4599,7 @@ export default function App() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-8">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-farm-olive rounded-full flex items-center justify-center text-farm-cream">
-              <TrendingUp size={16} />
-            </div>
-            <span className="text-xl serif font-bold tracking-tight">Sefilli.com</span>
-          </div>
-          <div className="text-gray-500 text-sm">
-            © 2026 Sefilli.com. Tüm hakları saklıdır.
-          </div>
-          <div className="flex gap-6">
-            <a href="#" className="text-gray-400 hover:text-white transition-colors">Instagram</a>
-            <a href="#" className="text-gray-400 hover:text-white transition-colors">YouTube</a>
-            <a href="#" className="text-gray-400 hover:text-white transition-colors">WhatsApp</a>
-          </div>
-        </div>
-      </footer>
+      <Footer />
       {/* Chatbot Floating UI */}
       <div className="fixed bottom-6 right-6 z-[60]">
         <AnimatePresence>
