@@ -8,7 +8,16 @@
   --color-farm-olive: #5A5A40;
   --color-farm-cream: #F5F5F0;
   --color-farm-earth: #8B4513;
-  --color-farm-leaf: #2E8B57;
+  --color-leaf: #2E8B57;
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
 }
 
 html {

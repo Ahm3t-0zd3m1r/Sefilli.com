@@ -360,6 +360,93 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "role", "content", "createdAt"]
+    },
+    "income": {
+      "title": "Gelir Takibi",
+      "description": "Mahsül satışlarından elde edilen gelirler.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "cropName": { "type": "string" },
+        "amount": { "type": "number" },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "cropName", "amount", "date", "createdAt"]
+    },
+    "inventory": {
+      "title": "Dijital Ambar",
+      "description": "Gübre, ilaç ve tohum stok takibi.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["gubre", "ilac", "tohum", "mazot", "diger"] },
+        "quantity": { "type": "number" },
+        "unit": { "type": "string" },
+        "minThreshold": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "category", "quantity", "unit", "updatedAt"]
+    },
+    "rotationPlans": {
+      "title": "Ekim Nöbeti Planları",
+      "description": "Toprak sağlığı için münavebe önerileri.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "fieldName": { "type": "string" },
+        "recommendation": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "fieldName", "recommendation", "createdAt"]
+    },
+    "feedPosts": {
+      "title": "Çiftçi Akışı",
+      "description": "Tarladan anlık sosyal paylaşımlar.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "content": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "likes": { "type": "array", "items": { "type": "string" } },
+        "commentCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "content", "createdAt"]
+    },
+    "irrigationLogs": {
+      "title": "Sulama Kayıtları",
+      "description": "Tarlaların sulama geçmişi.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "fieldId": { "type": "string" },
+        "amount": { "type": "number" },
+        "duration": { "type": "number" },
+        "date": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "fieldId", "amount", "date", "createdAt"]
+    },
+    "equipmentBookings": {
+      "title": "Ekipman Rezervasyonları",
+      "description": "Kiralık ekipmanların takvimi.",
+      "type": "object",
+      "properties": {
+        "listingId": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "renterId": { "type": "string" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "completed", "cancelled"] },
+        "totalPrice": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["listingId", "ownerId", "renterId", "startDate", "endDate", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -387,6 +474,12 @@
     "/news": { "schema": "news", "description": "Haberler koleksiyonu" },
     "/expenses": { "schema": "expenses", "description": "Gider takibi koleksiyonu" },
     "/cropCycles": { "schema": "cropCycles", "description": "Ekim döngüleri koleksiyonu" },
-    "/chatMessages": { "schema": "chatMessages", "description": "AI danışman mesajları koleksiyonu" }
+    "/chatMessages": { "schema": "chatMessages", "description": "AI danışman mesajları koleksiyonu" },
+    "/income": { "schema": "income", "description": "Gelir takibi koleksiyonu" },
+    "/inventory": { "schema": "inventory", "description": "Dijital ambar koleksiyonu" },
+    "/rotationPlans": { "schema": "rotationPlans", "description": "Ekim nöbeti planları" },
+    "/feedPosts": { "schema": "feedPosts", "description": "Çiftçi akışı koleksiyonu" },
+    "/irrigationLogs": { "schema": "irrigationLogs", "description": "Sulama kayıtları" },
+    "/equipmentBookings": { "schema": "equipmentBookings", "description": "Ekipman rezervasyonları" }
   }
 }

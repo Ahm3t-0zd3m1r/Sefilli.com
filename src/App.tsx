@@ -16,7 +16,8 @@ import {
   Moon, MessageCircle, Bell, Thermometer, Wind as WindIcon,
   Sparkles, History, Filter, ThumbsUp, MessageSquare as MessageSquareIcon,
   Upload, Calendar, Truck, Users, Droplets, Star, User as UserIcon,
-  LayoutGrid, Lock as LockIcon, Sprout as SproutIcon, FlaskConical, BookOpen
+  LayoutGrid, Lock as LockIcon, Sprout as SproutIcon, FlaskConical, BookOpen,
+  Package, Share2, Tractor
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -35,7 +36,7 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import imageCompression from 'browser-image-compression';
 import { toast, Toaster } from 'sonner';
 import { db, auth, storage } from './firebase';
-import { BlogPost, CropPrice, GalleryItem, Comment, ContactMessage, WeatherData, HarvestEvent, StockItem, Recipe, DiseaseAnalysis, ForumPost, ForumComment, WeatherAlert, HarvestPrediction, SoilAnalysis, MarketplaceItem, EquipmentListing, CustomerReview, IrrigationPlan, UserProfile, News, Expense, CropCycle, ChatMessage } from './types';
+import { BlogPost, CropPrice, GalleryItem, Comment, ContactMessage, WeatherData, HarvestEvent, StockItem, Recipe, DiseaseAnalysis, DiseaseAlert, ForumPost, ForumComment, WeatherAlert, HarvestPrediction, SoilAnalysis, MarketplaceItem, EquipmentListing, CustomerReview, IrrigationPlan, UserProfile, News, Expense, CropCycle, ChatMessage, Income, InventoryItem, RotationPlan, FeedPost, IrrigationLog, EquipmentBooking } from './types';
 import { cn } from './lib/utils';
 import ReactMarkdown from 'react-markdown';
 import { handleFirestoreError, OperationType } from './lib/errorHandlers';
@@ -47,6 +48,12 @@ import Footer from './components/Footer';
 import MarketDashboard from './components/MarketDashboard';
 import SoilAnalysisCharts from './components/SoilAnalysisCharts';
 import FarmerJournal from './components/FarmerJournal';
+import FinancialDashboard from './components/FinancialDashboard';
+import InventoryManager from './components/InventoryManager';
+import RotationPlanner from './components/RotationPlanner';
+import FarmerFeed from './components/FarmerFeed';
+import IrrigationDashboard from './components/IrrigationDashboard';
+import EquipmentRentalManager from './components/EquipmentRentalManager';
 import { Type } from "@google/genai";
 
 const GOOGLE_PROVIDER = new GoogleAuthProvider();
@@ -91,13 +98,20 @@ export default function App() {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [diseaseAnalyses, setDiseaseAnalyses] = useState<DiseaseAnalysis[]>([]);
+  const [diseaseAlerts, setDiseaseAlerts] = useState<DiseaseAlert[]>([]);
   const [marketplaceItems, setMarketplaceItems] = useState<MarketplaceItem[]>([]);
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [aiWeatherAdvice, setAiWeatherAdvice] = useState<string | null>(null);
   const [isAiWeatherLoading, setIsAiWeatherLoading] = useState(false);
-  const [farmerToolTab, setFarmerToolTab] = useState<'finance' | 'calendar' | 'ai' | 'map' | 'soil' | 'hasat' | 'sulama' | 'don' | 'ilaclama'>('finance');
+  const [farmerToolTab, setFarmerToolTab] = useState<'finance' | 'inventory' | 'rotation' | 'feed' | 'irrigation' | 'rental' | 'calendar' | 'ai' | 'map' | 'soil' | 'hasat' | 'don' | 'ilaclama'>('finance');
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [incomes, setIncomes] = useState<Income[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
+  const [rotationPlans, setRotationPlans] = useState<RotationPlan[]>([]);
+  const [feedPosts, setFeedPosts] = useState<FeedPost[]>([]);
+  const [irrigationLogs, setIrrigationLogs] = useState<IrrigationLog[]>([]);
+  const [equipmentBookings, setEquipmentBookings] = useState<EquipmentBooking[]>([]);
   const [soilReports, setSoilReports] = useState<SoilAnalysis[]>([]);
   const [harvestPredictions, setHarvestPredictions] = useState<HarvestPrediction[]>([]);
   const [irrigationPlans, setIrrigationPlans] = useState<IrrigationPlan[]>([]);
@@ -177,6 +191,11 @@ export default function App() {
   // Customer Reviews State
   const [customerReviews, setCustomerReviews] = useState<CustomerReview[]>([]);
   const [newReview, setNewReview] = useState({ rating: 5, comment: '', imageUrl: '', targetUserId: '' });
+
+  const [incomeForm, setIncomeForm] = useState({ cropName: '', amount: '', quantity: '', unit: 'kg', date: new Date().toISOString().split('T')[0] });
+  const [inventoryForm, setInventoryForm] = useState({ name: '', category: 'gubre' as InventoryItem['category'], quantity: '', unit: 'kg', minThreshold: '' });
+  const [feedForm, setFeedForm] = useState({ content: '', imageUrl: '' });
+  const [irrigationForm, setIrrigationForm] = useState({ fieldId: '', amount: '', duration: '', date: new Date().toISOString().split('T')[0] });
 
   const [marketplaceSearch, setMarketplaceSearch] = useState('');
   const [marketplaceFilter, setMarketplaceFilter] = useState('hepsi');
@@ -297,6 +316,11 @@ export default function App() {
       setWeatherAlerts(snap.docs.map(d => ({ id: d.id, ...d.data() } as WeatherAlert)));
     }, (err) => handleFirestoreError(err, OperationType.LIST, 'weatherAlerts'));
 
+    const qDiseaseAlerts = query(collection(db, 'diseaseAlerts'), where('expiresAt', '>', new Date().toISOString()));
+    const unsubDiseaseAlerts = onSnapshot(qDiseaseAlerts, (snap) => {
+      setDiseaseAlerts(snap.docs.map(d => ({ id: d.id, ...d.data() } as DiseaseAlert)));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, 'diseaseAlerts'));
+
     let unsubAnalyses = () => {};
     if (user) {
       const qAnalyses = query(collection(db, 'diseaseAnalysis'), orderBy('createdAt', 'desc'), limit(10));
@@ -369,6 +393,36 @@ export default function App() {
         setIrrigationPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as IrrigationPlan)));
       }, (err) => handleFirestoreError(err, OperationType.LIST, 'irrigationPlans'));
 
+      const qIncome = query(collection(db, 'income'), where('userId', '==', user.uid), orderBy('date', 'desc'));
+      const unsubIncome = onSnapshot(qIncome, (snap) => {
+        setIncomes(snap.docs.map(d => ({ id: d.id, ...d.data() } as Income)));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'income'));
+
+      const qInventory = query(collection(db, 'inventory'), where('userId', '==', user.uid), orderBy('updatedAt', 'desc'));
+      const unsubInventory = onSnapshot(qInventory, (snap) => {
+        setInventoryItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as InventoryItem)));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'inventory'));
+
+      const qRotation = query(collection(db, 'rotationPlans'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+      const unsubRotation = onSnapshot(qRotation, (snap) => {
+        setRotationPlans(snap.docs.map(d => ({ id: d.id, ...d.data() } as RotationPlan)));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'rotationPlans'));
+
+      const qFeed = query(collection(db, 'feedPosts'), orderBy('createdAt', 'desc'), limit(50));
+      const unsubFeed = onSnapshot(qFeed, (snap) => {
+        setFeedPosts(snap.docs.map(d => ({ id: d.id, ...d.data() } as FeedPost)));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'feedPosts'));
+
+      const qIrrigationLogs = query(collection(db, 'irrigationLogs'), where('userId', '==', user.uid), orderBy('date', 'desc'));
+      const unsubIrrigationLogs = onSnapshot(qIrrigationLogs, (snap) => {
+        setIrrigationLogs(snap.docs.map(d => ({ id: d.id, ...d.data() } as IrrigationLog)));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'irrigationLogs'));
+
+      const qBookings = query(collection(db, 'equipmentBookings'), where('ownerId', '==', user.uid));
+      const unsubBookings = onSnapshot(qBookings, (snap) => {
+        setEquipmentBookings(snap.docs.map(d => ({ id: d.id, ...d.data() } as EquipmentBooking)));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, 'equipmentBookings'));
+
       return () => {
         unsubBlog();
         unsubPrices();
@@ -379,6 +433,7 @@ export default function App() {
         unsubRecipes();
         unsubForum();
         unsubAlerts();
+        unsubDiseaseAlerts();
         unsubAnalyses();
         unsubMarketplace();
         unsubEquipment();
@@ -391,6 +446,12 @@ export default function App() {
         unsubPredictions();
         unsubSoil();
         unsubPlans();
+        unsubIncome();
+        unsubInventory();
+        unsubRotation();
+        unsubFeed();
+        unsubIrrigationLogs();
+        unsubBookings();
       };
     }
 
@@ -828,6 +889,46 @@ export default function App() {
       const result = response.text;
       setAnalysisResult(result);
       
+      // Extract structured info for regional alert
+      try {
+        const alertAi = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+        const alertResponse = await alertAi.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: `Aşağıdaki analiz sonucundan hastalığın adını, hangi üründe olduğunu ve ciddiyetini (low, medium, high, critical) JSON olarak çıkar. Analiz: ${result}`,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                diseaseName: { type: Type.STRING },
+                cropType: { type: Type.STRING },
+                severity: { type: Type.STRING, enum: ['low', 'medium', 'high', 'critical'] }
+              },
+              required: ["diseaseName", "cropType", "severity"]
+            }
+          }
+        });
+        
+        const alertData = JSON.parse(alertResponse.text);
+        
+        // If severity is high or critical, create a regional alert
+        if (alertData.severity === 'high' || alertData.severity === 'critical') {
+          await addDoc(collection(db, 'diseaseAlerts'), {
+            diseaseName: alertData.diseaseName,
+            cropType: alertData.cropType,
+            severity: alertData.severity,
+            location: currentUserProfile?.locationName || 'Niğde İçmeli',
+            description: `${alertData.cropType} ürününde ${alertData.diseaseName} tespit edildi. Bölgedeki çiftçilerin dikkatine!`,
+            reportedBy: user.displayName || 'Bir Çiftçi',
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7 days
+          });
+          toast.warning("⚠️ Yüksek riskli hastalık tespit edildi! Bölgesel alarm oluşturuldu.");
+        }
+      } catch (err) {
+        console.warn("Could not create regional alert:", err);
+      }
+
       await addDoc(collection(db, 'diseaseAnalysis'), {
         imageUrl,
         result,
@@ -1270,6 +1371,147 @@ export default function App() {
     }
   };
 
+  const handleAddIncome = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    try {
+      await addDoc(collection(db, 'income'), {
+        userId: user.uid,
+        cropName: incomeForm.cropName,
+        amount: parseFloat(incomeForm.amount),
+        quantity: parseFloat(incomeForm.quantity),
+        unit: incomeForm.unit,
+        date: incomeForm.date,
+        createdAt: new Date().toISOString()
+      });
+      setIncomeForm({ cropName: '', amount: '', quantity: '', unit: 'kg', date: new Date().toISOString().split('T')[0] });
+      toast.success("Gelir kaydı eklendi!");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'income');
+    }
+  };
+
+  const handleAddInventoryItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    try {
+      await addDoc(collection(db, 'inventory'), {
+        userId: user.uid,
+        name: inventoryForm.name,
+        category: inventoryForm.category,
+        quantity: parseFloat(inventoryForm.quantity),
+        unit: inventoryForm.unit,
+        minThreshold: parseFloat(inventoryForm.minThreshold),
+        updatedAt: new Date().toISOString()
+      });
+      setInventoryForm({ name: '', category: 'gubre', quantity: '', unit: 'kg', minThreshold: '' });
+      toast.success("Ambar kaydı eklendi!");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'inventory');
+    }
+  };
+
+  const handleUpdateInventoryQuantity = async (id: string, newQuantity: number) => {
+    try {
+      await updateDoc(doc(db, 'inventory', id), {
+        quantity: newQuantity,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, 'inventory');
+    }
+  };
+
+  const handleAddFeedPost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    try {
+      await addDoc(collection(db, 'feedPosts'), {
+        userId: user.uid,
+        userName: user.displayName || 'Çiftçi',
+        userPhoto: user.photoURL || '',
+        content: feedForm.content,
+        imageUrl: feedForm.imageUrl,
+        likes: [],
+        commentCount: 0,
+        createdAt: new Date().toISOString()
+      });
+      setFeedForm({ content: '', imageUrl: '' });
+      toast.success("Paylaşıldı!");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'feedPosts');
+    }
+  };
+
+  const handleLikeFeedPost = async (id: string) => {
+    if (!user) return;
+    const post = feedPosts.find(p => p.id === id);
+    if (!post) return;
+    
+    const newLikes = post.likes.includes(user.uid) 
+      ? post.likes.filter(uid => uid !== user.uid)
+      : [...post.likes, user.uid];
+
+    try {
+      await updateDoc(doc(db, 'feedPosts', id), { likes: newLikes });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, 'feedPosts');
+    }
+  };
+
+  const handleAddIrrigationLog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    try {
+      await addDoc(collection(db, 'irrigationLogs'), {
+        userId: user.uid,
+        fieldId: irrigationForm.fieldId,
+        amount: parseFloat(irrigationForm.amount),
+        duration: parseFloat(irrigationForm.duration),
+        date: irrigationForm.date,
+        createdAt: new Date().toISOString()
+      });
+      setIrrigationForm({ fieldId: '', amount: '', duration: '', date: new Date().toISOString().split('T')[0] });
+      toast.success("Sulama kaydı eklendi!");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, 'irrigationLogs');
+    }
+  };
+
+  const handleCreateRotationPlan = async (fieldName: string, history: { year: number; crop: string }[]) => {
+    if (!user) return;
+    const toastId = toast.loading("AI plan oluşturuyor...");
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-pro-preview",
+        contents: `Tarla: ${fieldName}. Geçmiş: ${JSON.stringify(history)}. 
+        Bu tarla için toprak sağlığını koruyacak ve verimi artıracak bir sonraki yıl ekim tavsiyesi ver. 
+        Kısa ve bilimsel bir açıklama yap.`
+      });
+
+      await addDoc(collection(db, 'rotationPlans'), {
+        userId: user.uid,
+        fieldName,
+        history,
+        recommendation: response.text,
+        createdAt: new Date().toISOString()
+      });
+      toast.success("Plan oluşturuldu!", { id: toastId });
+    } catch (err) {
+      toast.error("Plan oluşturulamadı.", { id: toastId });
+    }
+  };
+
+  const handleUpdateBookingStatus = async (id: string, status: EquipmentBooking['status']) => {
+    try {
+      await updateDoc(doc(db, 'equipmentBookings', id), { status });
+      toast.success(`Rezervasyon ${status === 'confirmed' ? 'onaylandı' : 'güncellendi'}.`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, 'equipmentBookings');
+    }
+  };
+
   const handleGenerateIrrigationPlan = async () => {
     if (!user || !newPlanInput.cropType) return;
     setIsGeneratingPlan(true);
@@ -1666,6 +1908,38 @@ export default function App() {
       </AnimatePresence>
 
       <main className="flex-grow">
+        {/* Regional Disease Alerts */}
+        <AnimatePresence>
+          {diseaseAlerts.length > 0 && (
+            <section className="bg-red-50 dark:bg-red-950/20 border-b border-red-100 dark:border-red-900/30 py-4 overflow-hidden">
+              <div className="max-w-7xl mx-auto px-4">
+                <div className="flex items-center gap-4">
+                  <div className="bg-red-500 text-white p-2 rounded-xl animate-pulse">
+                    <AlertTriangle size={20} />
+                  </div>
+                  <div className="flex-grow overflow-hidden">
+                    <div className="flex items-center gap-8 animate-marquee whitespace-nowrap">
+                      {diseaseAlerts.map(alert => (
+                        <div key={alert.id} className="flex items-center gap-2 text-red-700 dark:text-red-400 font-bold text-sm uppercase tracking-wider">
+                          <span className="bg-red-500 text-white px-2 py-0.5 rounded text-[10px]">{alert.severity}</span>
+                          <span>{alert.location}: {alert.cropType} - {alert.diseaseName}</span>
+                          <span className="text-red-300 dark:text-red-800">|</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => scrollToSection('map')}
+                    className="text-xs font-bold text-red-600 dark:text-red-400 hover:underline shrink-0"
+                  >
+                    Detayları Gör
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+        </AnimatePresence>
+
         {/* Hero Section */}
         <section id="anasayfa" className="relative h-[80vh] flex items-center justify-center overflow-hidden">
           <div className="absolute inset-0 z-0">
@@ -2895,12 +3169,16 @@ export default function App() {
                 <div className="space-y-2">
                   {[
                     { id: 'finance', label: 'Finansal Takip', icon: TrendingUp },
+                    { id: 'inventory', label: 'Dijital Ambar', icon: Package },
+                    { id: 'rotation', label: 'Ekim Nöbeti', icon: SproutIcon },
+                    { id: 'feed', label: 'Çiftçi Sosyal', icon: Share2 },
+                    { id: 'irrigation', label: 'Akıllı Sulama', icon: Droplets },
+                    { id: 'rental', label: 'Ekipman Kiralama', icon: Tractor },
                     { id: 'calendar', label: 'Ekim Takvimi', icon: Calendar },
                     { id: 'ai', label: 'AI Danışmanı', icon: Bot },
                     { id: 'map', label: 'Hastalık Haritası', icon: MapPin },
                     { id: 'soil', label: 'Toprak Analizi', icon: FileText },
                     { id: 'hasat', label: 'Hasat Tahmini', icon: Zap },
-                    { id: 'sulama', label: 'Sulama Planı', icon: Droplets },
                     { id: 'don', label: 'Don Uyarısı', icon: AlertTriangle },
                     { id: 'ilaclama', label: 'İlaçlama Rehberi', icon: FlaskConical },
                   ].map(tab => (
@@ -2924,20 +3202,36 @@ export default function App() {
                 <div className="bg-white dark:bg-zinc-900 rounded-[40px] p-8 md:p-12 shadow-xl border border-farm-olive/5 dark:border-white/5 min-h-[600px]">
                   {farmerToolTab === 'finance' && (
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
-                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                        <div>
-                          <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-2">Finansal Takip</h3>
-                          <p className="text-gray-500 text-sm">Giderlerinizi kaydedin ve bütçenizi yönetin.</p>
+                      <FinancialDashboard 
+                        expenses={expenses} 
+                        incomes={incomes} 
+                        onAddIncome={() => {
+                          const cropName = prompt("Ürün Adı:");
+                          const amount = prompt("Tutar (₺):");
+                          const quantity = prompt("Miktar:");
+                          if (cropName && amount && quantity) {
+                            addDoc(collection(db, 'income'), {
+                              userId: user.uid,
+                              cropName,
+                              amount: parseFloat(amount),
+                              quantity: parseFloat(quantity),
+                              unit: 'kg',
+                              date: new Date().toISOString().split('T')[0],
+                              createdAt: new Date().toISOString()
+                            });
+                          }
+                        }}
+                      />
+                      
+                      <div className="border-t border-gray-100 dark:border-gray-800 pt-12">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8">
+                          <div>
+                            <h3 className="text-2xl serif text-farm-olive dark:text-farm-cream mb-2">Gider Kaydı</h3>
+                            <p className="text-gray-500 text-sm">Giderlerinizi detaylı olarak kaydedin.</p>
+                          </div>
                         </div>
-                        <div className="bg-farm-olive/10 dark:bg-farm-cream/10 px-6 py-3 rounded-2xl">
-                          <span className="text-xs font-bold uppercase tracking-widest text-farm-olive/60 dark:text-farm-cream/60 block mb-1">Toplam Gider</span>
-                          <span className="text-2xl font-bold text-farm-olive dark:text-farm-cream">
-                            {expenses.reduce((sum, exp) => sum + exp.amount, 0).toLocaleString('tr-TR')} ₺
-                          </span>
-                        </div>
-                      </div>
 
-                      <form onSubmit={handleAddExpense} className="grid md:grid-cols-4 gap-4 p-6 bg-farm-cream dark:bg-zinc-800/50 rounded-3xl border border-farm-olive/10">
+                        <form onSubmit={handleAddExpense} className="grid md:grid-cols-4 gap-4 p-6 bg-farm-cream dark:bg-zinc-800/50 rounded-3xl border border-farm-olive/10">
                         <div className="space-y-2">
                           <label className="text-xs font-bold uppercase tracking-widest text-farm-olive/40 px-2">Kategori</label>
                           <select 
@@ -3024,6 +3318,165 @@ export default function App() {
                           </table>
                         </div>
                       </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                  {farmerToolTab === 'inventory' && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                      <InventoryManager 
+                        items={inventoryItems}
+                        onUpdate={handleUpdateInventoryQuantity}
+                        onDelete={(id) => handleDelete('inventory', id)}
+                        onAdd={() => {
+                          const name = prompt("Ürün Adı:");
+                          const category = prompt("Kategori (gubre, ilac, tohum, mazot):") as any;
+                          const quantity = prompt("Miktar:");
+                          const minThreshold = prompt("Kritik Stok Seviyesi:");
+                          if (name && category && quantity) {
+                            addDoc(collection(db, 'inventory'), {
+                              userId: user.uid,
+                              name,
+                              category,
+                              quantity: parseFloat(quantity),
+                              unit: 'kg',
+                              minThreshold: parseFloat(minThreshold || '10'),
+                              updatedAt: new Date().toISOString()
+                            });
+                          }
+                        }}
+                      />
+                    </motion.div>
+                  )}
+
+                  {farmerToolTab === 'rotation' && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                      <RotationPlanner 
+                        plans={rotationPlans}
+                        onAdd={() => {
+                          const fieldName = prompt("Tarla Adı:");
+                          if (fieldName) {
+                            handleCreateRotationPlan(fieldName, [
+                              { year: 2024, crop: 'Patates' },
+                              { year: 2023, crop: 'Buğday' }
+                            ]);
+                          }
+                        }}
+                      />
+                    </motion.div>
+                  )}
+
+                  {farmerToolTab === 'feed' && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                      <FarmerFeed 
+                        posts={feedPosts}
+                        onLike={handleLikeFeedPost}
+                        onComment={(id) => prompt("Yorumunuz:")}
+                        onPost={() => {
+                          const content = prompt("Ne paylaşmak istersiniz?");
+                          if (content) {
+                            addDoc(collection(db, 'feedPosts'), {
+                              userId: user.uid,
+                              userName: user.displayName || 'Çiftçi',
+                              userPhoto: user.photoURL || '',
+                              content,
+                              likes: [],
+                              commentCount: 0,
+                              createdAt: new Date().toISOString()
+                            });
+                          }
+                        }}
+                      />
+                    </motion.div>
+                  )}
+
+                  {farmerToolTab === 'irrigation' && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
+                      <IrrigationDashboard 
+                        logs={irrigationLogs}
+                        weather={weather}
+                        onAdd={() => {
+                          const amount = prompt("Su Miktarı (m³):");
+                          if (amount) {
+                            addDoc(collection(db, 'irrigationLogs'), {
+                              userId: user.uid,
+                              fieldId: 'Ana Tarla',
+                              amount: parseFloat(amount),
+                              duration: 2,
+                              date: new Date().toISOString().split('T')[0],
+                              createdAt: new Date().toISOString()
+                            });
+                          }
+                        }}
+                      />
+
+                      <div className="border-t border-farm-olive/10 pt-12">
+                        <div className="flex justify-between items-center mb-8">
+                          <div>
+                            <h3 className="text-2xl serif text-farm-olive dark:text-farm-cream mb-2">Akıllı Sulama Planı</h3>
+                            <p className="text-gray-500 text-sm">AI destekli sulama önerileri.</p>
+                          </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-3 gap-4 bg-farm-cream dark:bg-zinc-800/50 p-6 rounded-3xl border border-farm-olive/10 mb-8">
+                          <input 
+                            type="text" 
+                            placeholder="Ürün (Örn: Patates)"
+                            className="bg-white dark:bg-zinc-900 border-none rounded-xl px-4 py-3 text-sm"
+                            value={newPlanInput.cropType}
+                            onChange={(e) => setNewPlanInput({...newPlanInput, cropType: e.target.value})}
+                          />
+                          <input 
+                            type="number" 
+                            placeholder="Alan (Dönüm)"
+                            className="bg-white dark:bg-zinc-900 border-none rounded-xl px-4 py-3 text-sm"
+                            value={newPlanInput.fieldSize || ''}
+                            onChange={(e) => setNewPlanInput({...newPlanInput, fieldSize: Number(e.target.value)})}
+                          />
+                          <button 
+                            onClick={handleGenerateIrrigationPlan}
+                            disabled={isGeneratingPlan}
+                            className="bg-farm-olive text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2"
+                          >
+                            {isGeneratingPlan ? <Zap className="animate-spin" /> : <Droplets size={18} />}
+                            Plan Oluştur
+                          </button>
+                        </div>
+
+                        <div className="space-y-6">
+                          {irrigationPlans.map(plan => (
+                            <div key={plan.id} className="bg-white dark:bg-zinc-800 p-8 rounded-[32px] border border-farm-olive/5">
+                              <div className="flex justify-between items-center mb-6">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center text-blue-500">
+                                    <Droplets size={20} />
+                                  </div>
+                                  <div>
+                                    <h4 className="font-bold text-farm-olive dark:text-farm-cream">{plan.cropType} Planı</h4>
+                                    <p className="text-xs text-gray-400">{plan.fieldSize} Dönüm • {new Date(plan.createdAt).toLocaleDateString('tr-TR')}</p>
+                                  </div>
+                                </div>
+                                <button onClick={() => handleDelete('irrigationPlans', plan.id)} className="text-red-400"><Trash2 size={18} /></button>
+                              </div>
+                              <div className="prose prose-sm dark:prose-invert max-w-none bg-farm-cream/30 dark:bg-white/5 p-6 rounded-2xl">
+                                <ReactMarkdown>{plan.plan}</ReactMarkdown>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {farmerToolTab === 'rental' && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                      <EquipmentRentalManager 
+                        listings={marketplaceItems.filter(i => i.category === 'ekipman') as any}
+                        bookings={equipmentBookings}
+                        currentUserId={user.uid}
+                        onBook={(id) => toast.info("Rezervasyon talebi gönderildi.")}
+                        onUpdateStatus={handleUpdateBookingStatus}
+                      />
                     </motion.div>
                   )}
 
@@ -3374,62 +3827,6 @@ export default function App() {
                               <div className="text-sm text-gray-600 dark:text-zinc-400 italic">
                                 <ReactMarkdown>{pred.recommendation}</ReactMarkdown>
                               </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {farmerToolTab === 'sulama' && (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
-                      <div>
-                        <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-2">Akıllı Sulama Planı</h3>
-                        <p className="text-gray-500 text-sm">Hava durumu ve toprak tipine göre optimize edilmiş sulama takvimi.</p>
-                      </div>
-
-                      <div className="grid md:grid-cols-3 gap-4 bg-farm-cream dark:bg-zinc-800/50 p-6 rounded-3xl border border-farm-olive/10">
-                        <input 
-                          type="text" 
-                          placeholder="Ürün (Örn: Patates)"
-                          className="bg-white dark:bg-zinc-900 border-none rounded-xl px-4 py-3 text-sm"
-                          value={newPlanInput.cropType}
-                          onChange={(e) => setNewPlanInput({...newPlanInput, cropType: e.target.value})}
-                        />
-                        <input 
-                          type="number" 
-                          placeholder="Alan (Dönüm)"
-                          className="bg-white dark:bg-zinc-900 border-none rounded-xl px-4 py-3 text-sm"
-                          value={newPlanInput.fieldSize || ''}
-                          onChange={(e) => setNewPlanInput({...newPlanInput, fieldSize: Number(e.target.value)})}
-                        />
-                        <button 
-                          onClick={handleGenerateIrrigationPlan}
-                          disabled={isGeneratingPlan}
-                          className="bg-farm-olive text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2"
-                        >
-                          {isGeneratingPlan ? <Zap className="animate-spin" /> : <Droplets size={18} />}
-                          Plan Oluştur
-                        </button>
-                      </div>
-
-                      <div className="space-y-6">
-                        {irrigationPlans.map(plan => (
-                          <div key={plan.id} className="bg-white dark:bg-zinc-800 p-8 rounded-[32px] border border-farm-olive/5">
-                            <div className="flex justify-between items-center mb-6">
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-blue-500/10 rounded-full flex items-center justify-center text-blue-500">
-                                  <Droplets size={20} />
-                                </div>
-                                <div>
-                                  <h4 className="font-bold text-farm-olive dark:text-farm-cream">{plan.cropType} Planı</h4>
-                                  <p className="text-xs text-gray-400">{plan.fieldSize} Dönüm • {new Date(plan.createdAt).toLocaleDateString('tr-TR')}</p>
-                                </div>
-                              </div>
-                              <button onClick={() => handleDelete('irrigationPlans', plan.id)} className="text-red-400"><Trash2 size={18} /></button>
-                            </div>
-                            <div className="prose prose-sm dark:prose-invert max-w-none bg-farm-cream/30 dark:bg-white/5 p-6 rounded-2xl">
-                              <ReactMarkdown>{plan.plan}</ReactMarkdown>
                             </div>
                           </div>
                         ))}

@@ -98,7 +98,20 @@ export interface DiseaseAnalysis {
   imageUrl: string;
   result: string;
   userId: string;
+  location?: string; // Added for regional alerts
   createdAt: string;
+}
+
+export interface DiseaseAlert {
+  id: string;
+  diseaseName: string;
+  cropType: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  location: string;
+  description: string;
+  reportedBy: string;
+  createdAt: string;
+  expiresAt: string;
 }
 
 export interface ForumPost {
@@ -164,7 +177,7 @@ export interface MarketplaceItem {
   price: number;
   unit: string; // e.g., "ton"
   imageUrl: string;
-  category: 'sebze' | 'meyve' | 'bakliyat' | 'diger';
+  category: 'sebze' | 'meyve' | 'bakliyat' | 'diger' | 'ekipman';
   isAvailable: boolean;
   userId: string;
   userName: string;
@@ -259,5 +272,72 @@ export interface ChatMessage {
   userId: string;
   role: 'user' | 'model';
   content: string;
+  createdAt: string;
+}
+
+export interface Income {
+  id: string;
+  userId: string;
+  cropName: string;
+  amount: number;
+  quantity: number;
+  unit: string;
+  date: string;
+  description?: string;
+  createdAt: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  userId: string;
+  name: string;
+  category: 'gubre' | 'ilac' | 'tohum' | 'mazot' | 'diger';
+  quantity: number;
+  unit: string;
+  minThreshold: number;
+  updatedAt: string;
+}
+
+export interface RotationPlan {
+  id: string;
+  userId: string;
+  fieldName: string;
+  history: { year: number; crop: string }[];
+  recommendation: string;
+  createdAt: string;
+}
+
+export interface FeedPost {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhoto?: string;
+  content: string;
+  imageUrl?: string;
+  likes: string[]; // User IDs
+  commentCount: number;
+  createdAt: string;
+}
+
+export interface IrrigationLog {
+  id: string;
+  userId: string;
+  fieldId: string;
+  amount: number;
+  duration: number; // minutes
+  date: string;
+  createdAt: string;
+}
+
+export interface EquipmentBooking {
+  id: string;
+  listingId: string;
+  ownerId: string;
+  renterId: string;
+  renterName: string;
+  startDate: string;
+  endDate: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  totalPrice: number;
   createdAt: string;
 }
