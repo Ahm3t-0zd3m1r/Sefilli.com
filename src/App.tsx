@@ -3287,13 +3287,13 @@ export default function App() {
                       key={tab.id}
                       onClick={() => setFarmerToolTab(tab.id as any)}
                       className={cn(
-                        "w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold transition-all text-left",
+                        "w-full flex items-center gap-4 px-6 py-4 rounded-[22px] font-bold transition-all text-left",
                         farmerToolTab === tab.id 
-                          ? "bg-farm-olive text-white shadow-lg shadow-farm-olive/20" 
-                          : "bg-white dark:bg-zinc-900 text-farm-olive/60 dark:text-zinc-500 hover:bg-farm-olive/5 dark:hover:bg-white/5"
+                          ? "bg-farm-olive text-white shadow-xl shadow-farm-olive/30 scale-102" 
+                          : "bg-white/40 dark:bg-zinc-900/40 backdrop-blur-md text-farm-olive/60 dark:text-zinc-500 hover:bg-farm-olive/5 dark:hover:bg-white/5"
                       )}
                     >
-                      <tab.icon size={20} />
+                      <tab.icon size={20} className={farmerToolTab === tab.id ? "text-farm-accent" : ""} />
                       {tab.label}
                     </button>
                   ))}

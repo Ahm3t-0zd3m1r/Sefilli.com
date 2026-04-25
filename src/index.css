@@ -5,10 +5,11 @@
   --font-serif: "Cormorant Garamond", serif;
   --font-sans: "Inter", sans-serif;
   
-  --color-farm-olive: #5A5A40;
-  --color-farm-cream: #F5F5F0;
-  --color-farm-earth: #8B4513;
-  --color-leaf: #2E8B57;
+  --color-farm-olive: #3D5A40; /* Daha derin ve profesyonel bir orman yeşili */
+  --color-farm-cream: #F8F9F5; /* Daha temiz ve ferah bir krem */
+  --color-farm-earth: #5D4037; /* Daha modern bir kahve tonu */
+  --color-farm-leaf: #52B788;  /* Canlı yaprak yeşili */
+  --color-farm-accent: #E9C46A; /* Altın sarısı/Ekin rengi */
 
   @keyframes marquee {
     from { transform: translateX(0); }
