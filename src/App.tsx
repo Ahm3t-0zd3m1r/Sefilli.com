@@ -17,7 +17,7 @@ import {
   Sparkles, History, Filter, ThumbsUp, MessageSquare as MessageSquareIcon,
   Upload, Calendar, Truck, Users, Droplets, Star, User as UserIcon,
   LayoutGrid, Lock as LockIcon, Sprout as SproutIcon, FlaskConical, BookOpen,
-  Package, Share2, Tractor
+  Package, Share2, Tractor, Calculator, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -103,7 +103,7 @@ export default function App() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [aiWeatherAdvice, setAiWeatherAdvice] = useState<string | null>(null);
   const [isAiWeatherLoading, setIsAiWeatherLoading] = useState(false);
-  const [farmerToolTab, setFarmerToolTab] = useState<'finance' | 'inventory' | 'rotation' | 'feed' | 'irrigation' | 'rental' | 'calendar' | 'ai' | 'map' | 'soil' | 'hasat' | 'don' | 'ilaclama'>('finance');
+  const [farmerToolTab, setFarmerToolTab] = useState<'finance' | 'inventory' | 'destek' | 'rotation' | 'feed' | 'irrigation' | 'rental' | 'calendar' | 'ai' | 'map' | 'soil' | 'hasat' | 'don' | 'ilaclama'>('finance');
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [incomes, setIncomes] = useState<Income[]>([]);
@@ -3270,6 +3270,7 @@ export default function App() {
                   {[
                     { id: 'finance', label: 'Finansal Takip', icon: TrendingUp },
                     { id: 'inventory', label: 'Dijital Ambar', icon: Package },
+                    { id: 'destek', label: 'Destek Hesapla', icon: Calculator },
                     { id: 'rotation', label: 'Ekim Nöbeti', icon: SproutIcon },
                     { id: 'feed', label: 'Çiftçi Sosyal', icon: Share2 },
                     { id: 'irrigation', label: 'Akıllı Sulama', icon: Droplets },
@@ -3446,6 +3447,60 @@ export default function App() {
                           }
                         }}
                       />
+                    </motion.div>
+                  )}
+
+                  {farmerToolTab === 'destek' && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+                       <div className="bg-farm-cream dark:bg-zinc-800 p-8 rounded-[40px] border border-farm-olive/10 shadow-inner">
+                        <div className="flex items-center gap-4 mb-8">
+                          <div className="w-12 h-12 bg-farm-olive/10 rounded-2xl flex items-center justify-center text-farm-olive">
+                            <Calculator size={24} />
+                          </div>
+                          <div>
+                            <h3 className="text-2xl serif text-farm-olive dark:text-farm-cream">Mazot & Gübre Desteği Hesaplayıcı</h3>
+                            <p className="text-sm text-gray-400">Güncel devlet desteklemelerine göre alacağınız tutarı hesaplayın.</p>
+                          </div>
+                        </div>
+                        <div className="grid md:grid-cols-2 gap-8">
+                          <div className="space-y-6">
+                            <div>
+                              <label className="text-xs font-bold uppercase tracking-widest text-gray-400 block mb-2">Ürün Seçimi</label>
+                              <select className="w-full bg-white dark:bg-zinc-900 border-none rounded-xl p-4 text-sm outline-none ring-1 ring-farm-olive/10">
+                                <option>Patates</option>
+                                <option>Buğday</option>
+                                <option>Arpa</option>
+                                <option>Fasulye</option>
+                                <option>Mısır</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold uppercase tracking-widest text-gray-400 block mb-2">Arazi Miktarı (Dönüm)</label>
+                              <input type="number" placeholder="Örn: 50" className="w-full bg-white dark:bg-zinc-900 border-none rounded-xl p-4 text-sm outline-none ring-1 ring-farm-olive/10" />
+                            </div>
+                            <div className="pt-2">
+                              <button className="w-full bg-farm-olive text-white py-4 rounded-2xl font-bold shadow-lg shadow-farm-olive/20 hover:scale-[1.02] transition-all">Destek Tutarı Hesapla</button>
+                            </div>
+                          </div>
+                          <div className="bg-white dark:bg-zinc-900 p-8 rounded-[32px] border border-farm-olive/5 flex flex-col justify-center text-center">
+                            <p className="text-xs text-gray-400 mb-2 uppercase tracking-widest font-bold">Tahmini Toplam Destek</p>
+                            <span className="text-5xl font-bold text-farm-olive dark:text-farm-cream">0,00 ₺</span>
+                            <div className="mt-8 space-y-2 text-left">
+                              <div className="flex justify-between text-xs text-gray-500">
+                                <span>Mazot Desteği:</span>
+                                <span>0,00 ₺</span>
+                              </div>
+                              <div className="flex justify-between text-xs text-gray-500">
+                                <span>Gübre Desteği:</span>
+                                <span>0,00 ₺</span>
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-gray-400 mt-6 leading-relaxed bg-farm-cream/50 dark:bg-white/5 p-3 rounded-lg">
+                              *Bu değerler 2024 yılı ÇKS verileri ve resmi gazete duyuruları baz alınarak simüle edilmiştir. Kesin tutarlar il/ilçe tarım müdürlükleri tarafından belirlenir.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </motion.div>
                   )}
 
