@@ -134,6 +134,7 @@ export default function App() {
   const [chatInput, setChatInput] = useState('');
   const [isChatting, setIsChatting] = useState(false);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
+  const [showFeedModal, setShowFeedModal] = useState(false);
   const [newSoilAnalysis, setNewSoilAnalysis] = useState({ reportUrl: '', analysisResult: '' });
   const [isPredicting, setIsPredicting] = useState(false);
   const [predictionResult, setPredictionResult] = useState<HarvestPrediction | null>(null);
@@ -157,6 +158,8 @@ export default function App() {
   const [botMessages, setBotMessages] = useState<{ role: 'user' | 'model', text: string }[]>([]);
   const [botInput, setBotInput] = useState('');
   const [isBotLoading, setIsBotLoading] = useState(false);
+  const [diseaseFile, setDiseaseFile] = useState<File | null>(null);
+  const [soilFile, setSoilFile] = useState<File | null>(null);
 
   // Order State
   const [selectedProduct, setSelectedProduct] = useState<StockItem | null>(null);
@@ -634,7 +637,7 @@ export default function App() {
         // Use uploadBytesResumable for better progress tracking (even if we just log it)
         const uploadTask = uploadBytesResumable(storageRef, fileToUpload);
         
-        return new Promise((resolve, reject) => {
+        const downloadUrl = await new Promise<string>((resolve, reject) => {
           uploadTask.on('state_changed', 
             (snapshot) => {
               const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
@@ -644,18 +647,25 @@ export default function App() {
               }
             }, 
             (error: any) => {
-              console.error("Upload task error:", error);
+              console.error("Upload task error details:", error);
               toast.dismiss(uploadToast);
               reject(error);
             }, 
             async () => {
-              const url = await getDownloadURL(uploadTask.snapshot.ref);
-              console.log("File uploaded successfully:", url);
-              toast.success(`${file.name} başarıyla yüklendi!`, { id: uploadToast });
-              resolve(url);
+              try {
+                const url = await getDownloadURL(uploadTask.snapshot.ref);
+                console.log("File uploaded successfully:", url);
+                toast.success(`${file.name} başarıyla yüklendi!`, { id: uploadToast });
+                resolve(url);
+              } catch (urlError) {
+                console.error("Error getting download URL:", urlError);
+                reject(urlError);
+              }
             }
           );
         });
+
+        return downloadUrl;
       } catch (error: any) {
         toast.dismiss(uploadToast);
         console.error("File upload error details:", error);
@@ -1315,15 +1325,19 @@ export default function App() {
 
   const handleSoilAnalysisUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !newSoilAnalysis.reportUrl) return;
+    if (!user || !newSoilAnalysis.reportUrl || !soilFile) return;
     setIsAnalyzing(true);
     try {
+      const base64 = await fileToBase64(soilFile);
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       
-      // First, get the text analysis
+      // Multimodal analysis
       const textResponse = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
-        contents: `Bu toprak analizi raporunu yorumla: ${newSoilAnalysis.reportUrl}. Hangi gübreler kullanılmalı, hangi ürünler ekilmeli?`
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [
+          { inlineData: { data: base64, mimeType: soilFile.type } },
+          { text: "Bu toprak analizi raporunu yorumla. Hangi gübreler kullanılmalı, hangi ürünler ekilmeli? Niğde şartlarını göz önünde bulundur." }
+        ]
       });
 
       const result = textResponse.text || "Yorum yapılamadı.";
@@ -1332,8 +1346,11 @@ export default function App() {
       let structuredData = null;
       try {
         const dataResponse = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: `Aşağıdaki toprak analizi raporundan şu değerleri sayısal olarak çıkar (0-100 arası normalize et, pH 0-14 arası kalsın): pH, azot, fosfor, potasyum, organik madde. Rapor: ${newSoilAnalysis.reportUrl}`,
+          model: "gemini-2.5-flash-preview-tts",
+          contents: [
+            { inlineData: { data: base64, mimeType: soilFile.type } },
+            { text: "Aşağıdaki toprak analizi raporundan şu değerleri sayısal olarak çıkar (0-100 arası normalize et, pH 0-14 arası kalsın): pH, azot, fosfor, potasyum, organik madde. Sadece JSON formatında yanıt ver." }
+          ],
           config: {
             responseMimeType: "application/json",
             responseSchema: {
@@ -1639,6 +1656,89 @@ export default function App() {
         setEditingProfile={setEditingProfile}
         currentUserProfile={currentUserProfile}
       />
+
+      {/* Feed Modal */}
+      <AnimatePresence>
+        {showFeedModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowFeedModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-white dark:bg-zinc-900 rounded-[40px] shadow-2xl overflow-hidden p-8"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-2xl serif text-farm-olive dark:text-farm-cream">Yeni Paylaşım Yap</h3>
+                <button onClick={() => setShowFeedModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-all">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                if (!user || !feedForm.content) return;
+                try {
+                  await handleAddFeedPost(e);
+                  setShowFeedModal(false);
+                } catch (err) {
+                  console.error("Feed post error:", err);
+                }
+              }} className="space-y-6">
+                <textarea 
+                  value={feedForm.content}
+                  onChange={(e) => setFeedForm({ ...feedForm, content: e.target.value })}
+                  placeholder="Neler oluyor? Bir güncelleme paylaş..."
+                  className="w-full bg-gray-50 dark:bg-zinc-800/50 border border-gray-100 dark:border-white/5 rounded-2xl p-4 outline-none focus:ring-2 focus:ring-farm-olive min-h-[120px] resize-none text-sm"
+                  required
+                />
+
+                <div className="space-y-4">
+                  <label className="flex items-center justify-center p-4 bg-gray-50 dark:bg-zinc-800/80 border-2 border-dashed border-gray-100 dark:border-white/5 rounded-2xl cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-800 transition-all">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const url = await handleFileUpload(file, 'feed');
+                          setFeedForm({ ...feedForm, imageUrl: url });
+                        }
+                      }}
+                    />
+                    {feedForm.imageUrl ? (
+                      <div className="relative w-full aspect-video rounded-xl overflow-hidden">
+                        <img src={feedForm.imageUrl} alt="Önizleme" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-all text-white text-xs font-bold">Resmi Değiştir</div>
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 flex items-center gap-2">
+                        <Camera size={20} />
+                        <span className="text-sm font-medium">Fotoğraf Ekle</span>
+                      </div>
+                    )}
+                  </label>
+
+                  <button 
+                    type="submit" 
+                    disabled={isUploading}
+                    className="w-full bg-farm-olive text-white py-4 rounded-2xl font-bold shadow-lg shadow-farm-olive/20 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:hover:scale-100"
+                  >
+                    {isUploading ? 'Yükleniyor...' : 'Paylaş'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Profile Settings Modal */}
       <AnimatePresence>
@@ -3371,21 +3471,19 @@ export default function App() {
                       <FarmerFeed 
                         posts={feedPosts}
                         onLike={handleLikeFeedPost}
-                        onComment={(id) => prompt("Yorumunuz:")}
-                        onPost={() => {
-                          const content = prompt("Ne paylaşmak istersiniz?");
-                          if (content) {
-                            addDoc(collection(db, 'feedPosts'), {
+                        onComment={(id) => {
+                          const comment = prompt("Yorumunuz:");
+                          if (comment && user) {
+                            addDoc(collection(db, 'feedComments'), {
+                              postId: id,
                               userId: user.uid,
                               userName: user.displayName || 'Çiftçi',
-                              userPhoto: user.photoURL || '',
-                              content,
-                              likes: [],
-                              commentCount: 0,
+                              content: comment,
                               createdAt: new Date().toISOString()
                             });
                           }
                         }}
+                        onPost={() => setShowFeedModal(true)}
                       />
                     </motion.div>
                   )}
@@ -3678,44 +3776,20 @@ export default function App() {
                                 type="file" 
                                 accept="image/*" 
                                 className="absolute inset-0 opacity-0 cursor-pointer"
-                                onChange={async (e) => {
+                                onChange={(e) => {
                                   const file = e.target.files?.[0];
                                   if (file) {
-                                    const url = await handleFileUpload(file, 'diseases');
-                                    setDiseaseImage(url);
+                                    setDiseaseFile(file);
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => setDiseaseImage(reader.result as string);
+                                    reader.readAsDataURL(file);
                                   }
                                 }}
                               />
                             </div>
                             <button 
-                              onClick={async () => {
-                                if (!diseaseImage) return;
-                                setIsAnalyzing(true);
-                                try {
-                                  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-                                  const response = await ai.models.generateContent({
-                                    model: "gemini-2.5-flash-preview-tts",
-                                    contents: {
-                                      parts: [
-                                        { inlineData: { data: diseaseImage.split(',')[1], mimeType: 'image/jpeg' } },
-                                        { text: "Bu bitki hastalığını teşhis et. Nedenini ve çözüm önerilerini (ilaçlama, doğal yöntemler) söyle." }
-                                      ]
-                                    }
-                                  });
-                                  setAnalysisResult(response.text);
-                                  await addDoc(collection(db, 'diseaseAnalysis'), {
-                                    imageUrl: diseaseImage,
-                                    result: response.text,
-                                    userId: user.uid,
-                                    createdAt: new Date().toISOString()
-                                  });
-                                } catch (err) {
-                                  toast.error("Teşhis sırasında bir hata oluştu.");
-                                } finally {
-                                  setIsAnalyzing(false);
-                                }
-                              }}
-                              disabled={!diseaseImage || isAnalyzing}
+                              onClick={() => diseaseFile && handleDiseaseAnalysis(diseaseFile)}
+                              disabled={!diseaseFile || isAnalyzing}
                               className="w-full bg-farm-olive text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                               {isAnalyzing ? <Zap className="animate-spin" /> : <Sparkles size={20} />}
@@ -3751,18 +3825,35 @@ export default function App() {
 
                       <form onSubmit={handleSoilAnalysisUpload} className="bg-farm-cream dark:bg-zinc-800/50 p-8 rounded-[32px] border border-farm-olive/10">
                         <div className="space-y-4">
-                          <input 
-                            type="text" 
-                            placeholder="Rapor Bağlantısı (URL) veya Dosya Adı"
-                            className="w-full bg-white dark:bg-zinc-900 border-none rounded-xl px-4 py-3 text-sm"
-                            value={newSoilAnalysis.reportUrl}
-                            onChange={(e) => setNewSoilAnalysis({...newSoilAnalysis, reportUrl: e.target.value})}
-                            required
-                          />
+                          <label className="block bg-white dark:bg-zinc-900 border-2 border-dashed border-farm-olive/20 rounded-2xl p-6 text-center cursor-pointer hover:border-farm-olive/40 transition-all">
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*,application/pdf"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setSoilFile(file);
+                                  const url = await handleFileUpload(file, 'soil-analyses');
+                                  setNewSoilAnalysis({...newSoilAnalysis, reportUrl: url});
+                                }
+                              }}
+                            />
+                            {newSoilAnalysis.reportUrl ? (
+                              <div className="text-farm-olive font-bold flex items-center justify-center gap-2">
+                                <FileText size={20} /> Rapor Yüklendi ✅
+                              </div>
+                            ) : (
+                              <div className="text-gray-400">
+                                <Upload size={32} className="mx-auto mb-2 opacity-20" />
+                                <p className="text-sm">Rapor fotoğrafını veya PDF dosyasını buraya yükleyin</p>
+                              </div>
+                            )}
+                          </label>
                           <button 
                             type="submit" 
-                            disabled={isAnalyzing}
-                            className="w-full bg-farm-olive text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2"
+                            disabled={isAnalyzing || !newSoilAnalysis.reportUrl}
+                            className="w-full bg-farm-olive text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
                           >
                             {isAnalyzing ? <Zap className="animate-spin" /> : <FileText size={20} />}
                             Analizi Kaydet ve Yorumla
