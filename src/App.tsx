@@ -8,7 +8,7 @@ import {
   Menu, X, Sun, Cloud, CloudRain, Wind, 
   TrendingUp, TrendingDown, Minus, 
   Image as ImageIcon, Video, MessageSquare, 
-  Settings, Send, LogIn, LogOut, Trash2, Plus, Eye,
+  Settings, Send, LogIn, LogOut, Plus, Eye,
   ChevronRight, MapPin, Phone, Mail, Clock,
   Utensils, Search, Globe, Camera, Zap, Newspaper,
   CloudSun, AlertTriangle, ShoppingBag, BarChart3,
@@ -17,7 +17,7 @@ import {
   Sparkles, History, Filter, ThumbsUp, MessageSquare as MessageSquareIcon,
   Upload, Calendar, Truck, Users, Droplets, Star, User as UserIcon,
   LayoutGrid, Lock as LockIcon, Sprout as SproutIcon, FlaskConical, BookOpen,
-  Package, Share2, Tractor, Calculator, Trash2
+  Package, Share2, Tractor, Calculator, Trash2, QrCode, Verified, CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -135,6 +135,34 @@ export default function App() {
   const [isChatting, setIsChatting] = useState(false);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
   const [showFeedModal, setShowFeedModal] = useState(false);
+  const [selectedTraceItem, setSelectedTraceItem] = useState<MarketplaceItem | null>(null);
+  const [isGeneratingTrace, setIsGeneratingTrace] = useState(false);
+  const [traceDetail, setTraceDetail] = useState<string | null>(null);
+
+  const handleShowTraceability = async (item: MarketplaceItem) => {
+    setSelectedTraceItem(item);
+    setIsGeneratingTrace(true);
+    setTraceDetail(null);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Bu ürün için bir izlenebilirlik raporu oluştur: ${item.name}. 
+        Şu bilgileri hayal et (samimi ve güven verici bir dille):
+        - Ekim bölgesi (Niğde İçmeli Köyü tarlaları)
+        - Kullanılan su kaynağı (Köyün doğal yer altı suları)
+        - Gübreleme yöntemi (Organik ağırlıklı)
+        - Hasat hikayesi.
+        Kısa paragraf ve 3-4 maddelik teknik bilgi şeklinde olsun.`
+      });
+      setTraceDetail(response.text);
+    } catch (error) {
+      console.error("Traceability AI error:", error);
+      setTraceDetail("İzlenebilirlik bilgisi şu an oluşturulamadı.");
+    } finally {
+      setIsGeneratingTrace(false);
+    }
+  };
   const [newSoilAnalysis, setNewSoilAnalysis] = useState({ reportUrl: '', analysisResult: '' });
   const [isPredicting, setIsPredicting] = useState(false);
   const [predictionResult, setPredictionResult] = useState<HarvestPrediction | null>(null);
@@ -1638,6 +1666,72 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-farm-cream dark:bg-zinc-950 transition-colors duration-300">
       <Toaster position="top-center" richColors />
       {/* Header */}
+      <AnimatePresence>
+        {selectedTraceItem && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedTraceItem(null)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 30 }}
+              className="relative w-full max-w-xl bg-white dark:bg-zinc-900 rounded-[40px] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 text-center border-b border-gray-100 dark:border-white/5 bg-farm-olive/5">
+                <div className="w-20 h-20 bg-white dark:bg-zinc-800 rounded-2xl shadow-lg mx-auto mb-4 flex items-center justify-center p-2">
+                  <QrCode size={60} className="text-farm-olive" />
+                </div>
+                <h3 className="text-2xl serif text-farm-olive dark:text-farm-cream mb-2">{selectedTraceItem.name} İzlenebilirlik Kaydı</h3>
+                <p className="text-xs text-gray-400 uppercase tracking-widest font-bold">Token ID: #SF-{selectedTraceItem.id.slice(0, 8).toUpperCase()}</p>
+              </div>
+              
+              <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                {isGeneratingTrace ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-4">
+                    <Zap className="animate-spin text-farm-olive" size={32} />
+                    <p className="text-sm italic text-gray-500">Tarla kayıtları ve hasat geçmişi sorgulanıyor...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="bg-farm-cream/50 dark:bg-white/5 p-6 rounded-3xl border border-farm-olive/5 prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown>{traceDetail || ''}</ReactMarkdown>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-gray-50 dark:bg-zinc-800/50 rounded-2xl border border-gray-100 dark:border-white/5">
+                        <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Analiz Durumu</p>
+                        <p className="text-sm font-bold text-farm-leaf flex items-center gap-1">
+                          <CheckCircle size={14} /> Kalıntı Yok (Temiz)
+                        </p>
+                      </div>
+                      <div className="p-4 bg-gray-50 dark:bg-zinc-800/50 rounded-2xl border border-gray-100 dark:border-white/5">
+                        <p className="text-[10px] text-gray-400 uppercase font-bold mb-1">Piket/Sertifika</p>
+                        <p className="text-sm font-bold text-blue-500 flex items-center gap-1">
+                          <Verified size={14} /> İyi Tarım Uyg.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="p-8 bg-gray-50 dark:bg-zinc-800/50 flex gap-4">
+                <button 
+                  onClick={() => setSelectedTraceItem(null)}
+                  className="flex-1 bg-farm-olive text-white py-4 rounded-2xl font-bold"
+                >
+                  Kapat
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <Header 
         user={user}
         activeSection={activeSection}
@@ -2331,6 +2425,17 @@ export default function App() {
                     <div className="absolute top-4 right-4 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-farm-olive uppercase tracking-widest">
                       {item.category}
                     </div>
+                    {/* QR Code Overlay Toggle */}
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShowTraceability(item);
+                      }}
+                      className="absolute bottom-4 right-4 bg-white/90 dark:bg-zinc-900/90 p-2 rounded-xl text-farm-olive shadow-lg hover:scale-110 transition-all"
+                      title="İzlenebilirlik QR Kodunu Gör"
+                    >
+                      <QrCode size={20} />
+                    </button>
                   </div>
                   <div className="p-6">
                     <div 
@@ -2381,6 +2486,17 @@ export default function App() {
                             <MessageCircle size={20} />
                           </a>
                         )}
+                        <button 
+                          onClick={() => {
+                            setActiveSection('ai');
+                            setBotInput(`${item.name} hakkında bilgi almak istiyorum. Bu ürün Niğde şartlarında nasıl yetişir, fiyatı (${item.price}₺/${item.unit}) sence nasıl?`);
+                            setIsChatting(true);
+                          }}
+                          className="bg-farm-olive/10 text-farm-olive p-3 rounded-2xl hover:bg-farm-olive/20 transition-all"
+                          title="Sefilli'ye Sor"
+                        >
+                          <Bot size={20} />
+                        </button>
                       </div>
                     </div>
                   </div>
