@@ -17,7 +17,7 @@ import {
   Sparkles, History, Filter, ThumbsUp, MessageSquare as MessageSquareIcon,
   Upload, Calendar, Truck, Users, Droplets, Star, User as UserIcon,
   LayoutGrid, Lock as LockIcon, Sprout as SproutIcon, FlaskConical, BookOpen,
-  Package, Share2, Tractor, Calculator, Trash2, QrCode, Verified, CheckCircle
+  Package, Share2, Tractor, Calculator, Trash2, QrCode, Verified, CheckCircle, Volume2, VolumeX
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -163,8 +163,50 @@ export default function App() {
       setIsGeneratingTrace(false);
     }
   };
+  const [marketImagePreview, setMarketImagePreview] = useState<string | null>(null);
+  const [isMarketUploading, setIsMarketUploading] = useState(false);
+  const [feedImagePreview, setFeedImagePreview] = useState<string | null>(null);
+
+  const handleMarketImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setMarketImagePreview(URL.createObjectURL(file));
+      setIsMarketUploading(true);
+      try {
+        const url = await handleFileUpload(file, 'marketplace');
+        setNewMarketplaceItem({ ...newMarketplaceItem, imageUrl: url });
+        toast.success("Fotoğraf başarıyla yüklendi.");
+      } catch (error) {
+        toast.error("Fotoğraf yüklenemedi. Lütfen tekrar deneyin.");
+        setMarketImagePreview(null);
+      } finally {
+        setIsMarketUploading(false);
+      }
+    }
+  };
+
+  const handleFeedImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFeedImagePreview(URL.createObjectURL(file));
+      try {
+        const url = await handleFileUpload(file, 'feed');
+        setFeedForm({ ...feedForm, imageUrl: url });
+      } catch (error) {
+        setFeedImagePreview(null);
+      }
+    }
+  };
   const [newSoilAnalysis, setNewSoilAnalysis] = useState({ reportUrl: '', analysisResult: '' });
   const [isPredicting, setIsPredicting] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
+
+  const speak = (text: string) => {
+    if (!isVoiceEnabled) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'tr-TR';
+    window.speechSynthesis.speak(utterance);
+  };
   const [predictionResult, setPredictionResult] = useState<HarvestPrediction | null>(null);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [newPlanInput, setNewPlanInput] = useState({ cropType: '', fieldSize: 0, soilType: 'tınlı' });
@@ -1093,6 +1135,8 @@ export default function App() {
         createdAt: new Date().toISOString()
       });
 
+      speak(aiResponse);
+
     } catch (error) {
       console.error("Chat error:", error);
       toast.error('AI yanıtı alınırken bir hata oluştu.');
@@ -1799,17 +1843,11 @@ export default function App() {
                       type="file" 
                       accept="image/*" 
                       className="hidden" 
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const url = await handleFileUpload(file, 'feed');
-                          setFeedForm({ ...feedForm, imageUrl: url });
-                        }
-                      }}
+                      onChange={handleFeedImageChange}
                     />
-                    {feedForm.imageUrl ? (
+                    {feedImagePreview || feedForm.imageUrl ? (
                       <div className="relative w-full aspect-video rounded-xl overflow-hidden">
-                        <img src={feedForm.imageUrl} alt="Önizleme" className="w-full h-full object-cover" />
+                        <img src={feedImagePreview || feedForm.imageUrl} alt="Önizleme" className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-all text-white text-xs font-bold">Resmi Değiştir</div>
                       </div>
                     ) : (
@@ -2208,6 +2246,33 @@ export default function App() {
               )}
             </div>
           )}
+        </section>
+
+        {/* Daily Tip Section */}
+        <section className="py-8 bg-white dark:bg-zinc-900 border-b border-farm-olive/5">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="bg-farm-olive/5 dark:bg-white/5 rounded-[32px] p-8 border border-farm-olive/10 flex flex-col md:flex-row items-center gap-8">
+              <div className="w-20 h-20 bg-farm-olive text-white rounded-3xl flex items-center justify-center shadow-xl shadow-farm-olive/20 shrink-0">
+                <Sparkles size={40} />
+              </div>
+              <div className="flex-grow text-center md:text-left">
+                <h3 className="text-xl serif text-farm-olive dark:text-farm-cream mb-2">Günün AI Tarım Tavsiyesi</h3>
+                <p className="text-sm text-gray-600 dark:text-zinc-400 italic leading-relaxed">
+                  "Niğde'nin bu mevsimdeki rüzgarlı havasında, yeni dikilen fidanlarınızı mutlaka destek çubuklarıyla sabitleyin ve rüzgarın kurutucu etkisine karşı malçlama yapmayı unutmayın."
+                </p>
+              </div>
+              <button 
+                onClick={() => {
+                  setActiveSection('ciftci-araclari');
+                  setFarmerToolTab('ai');
+                  setChatInput("Bugün için bana Niğde şartlarına uygun özel bir tarım tavsiyesi verir misin?");
+                }}
+                className="bg-farm-olive text-white px-6 py-3 rounded-2xl text-sm font-bold flex items-center gap-2 hover:scale-105 transition-all"
+              >
+                Dahasını Sor <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
         </section>
 
         {/* News & Announcements */}
@@ -3867,9 +3932,23 @@ export default function App() {
 
                   {farmerToolTab === 'ai' && (
                     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col">
-                      <div className="mb-8">
-                        <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-2">AI Tarım Danışmanı</h3>
-                        <p className="text-gray-500 text-sm">Toprak, gübreleme ve hastalıklar hakkında AI'ya danışın.</p>
+                      <div className="flex items-center justify-between mb-8">
+                        <div>
+                          <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-2">AI Tarım Danışmanı</h3>
+                          <p className="text-gray-500 text-sm">Toprak, gübreleme ve hastalıklar hakkında AI'ya danışın.</p>
+                        </div>
+                        <button 
+                          onClick={() => setIsVoiceEnabled(!isVoiceEnabled)}
+                          className={cn(
+                            "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all",
+                            isVoiceEnabled 
+                              ? "bg-farm-olive text-white shadow-lg" 
+                              : "bg-white dark:bg-zinc-800 text-farm-olive border border-farm-olive/20"
+                          )}
+                        >
+                          {isVoiceEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                          {isVoiceEnabled ? "Sesli Yanıt Açık" : "Sesli Yanıt Kapalı"}
+                        </button>
                       </div>
 
                       <div className="flex-grow bg-farm-cream/30 dark:bg-zinc-800/30 rounded-[32px] p-6 mb-6 overflow-y-auto max-h-[500px] space-y-4 custom-scrollbar">
@@ -4941,19 +5020,25 @@ export default function App() {
                       <input 
                         type="file" 
                         accept="image/*"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const url = await handleFileUpload(file, 'marketplace');
-                            setNewMarketplaceItem({ ...newMarketplaceItem, imageUrl: url });
-                          }
-                        }}
+                        onChange={handleMarketImageChange}
                         className="hidden"
                         id="marketplace-upload"
                       />
-                      <label htmlFor="marketplace-upload" className="flex-grow bg-white/10 border border-white/20 rounded-xl p-3 cursor-pointer text-center text-sm">
-                        {newMarketplaceItem.imageUrl ? "Görsel Yüklendi ✅" : "Görsel Seç"}
+                      <label htmlFor="marketplace-upload" className="flex-grow bg-white/10 border border-white/20 rounded-xl p-3 cursor-pointer text-center text-sm flex items-center justify-center gap-2">
+                         {isMarketUploading ? (
+                          <Zap className="animate-spin" size={16} />
+                        ) : marketImagePreview ? (
+                          <CheckCircle className="text-farm-leaf" size={16} />
+                        ) : (
+                          <Camera size={16} />
+                        )}
+                        {isMarketUploading ? "Yükleniyor..." : marketImagePreview ? "Görsel Değiştir" : "Görsel Seç"}
                       </label>
+                      {marketImagePreview && (
+                        <div className="w-12 h-12 rounded-xl overflow-hidden border border-white/20">
+                          <img src={marketImagePreview} alt="Preview" className="w-full h-full object-cover" />
+                        </div>
+                      )}
                     </div>
                     <button 
                       type="submit" 
