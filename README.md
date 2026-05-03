@@ -26,4 +26,4 @@ The app now uses a server-side `/api/gemini` endpoint so the API key is no longe
 ## Upload behavior
 
 Image uploads still require an authenticated Firebase user.
-The client now blocks unauthenticated uploads earlier and the storage limit is aligned to 10 MB.
+The Firebase Storage size limit is aligned to 10 MB.
