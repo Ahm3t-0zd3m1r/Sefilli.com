@@ -1,19 +1,23 @@
 import { getAuth } from 'firebase/auth';
-import {
-  getDownloadURL,
-  getStorage,
-  ref,
-  uploadBytes as baseUploadBytes,
-} from '@firebase/storage';
-export { getDownloadURL, getStorage, ref };
-export * from '@firebase/storage';
 
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
 type UploadData = Blob | Uint8Array | ArrayBuffer;
 type ProgressCallback = (snapshot: any) => void;
 type ErrorCallback = (error: Error) => void;
 type CompleteCallback = () => void;
+
+type StorageRefLike = {
+  fullPath: string;
+  name: string;
+  bucket: string;
+  parent: null;
+  root: null;
+  __downloadURL?: string;
+  __metadata?: Record<string, unknown> | null;
+};
 
 function getByteSize(data: UploadData): number {
   if (data instanceof Blob) return data.size;
@@ -33,19 +37,89 @@ function assertUploadAllowed(data: UploadData) {
     throw createStorageError('Fotograf yuklemek icin once giris yapmalisiniz.', 'storage/unauthenticated');
   }
 
+  if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) {
+    throw createStorageError('Cloudinary ayarlari eksik. Vercel env degiskenlerini kontrol edin.', 'storage/missing-config');
+  }
+
   if (getByteSize(data) > MAX_UPLOAD_SIZE) {
     throw createStorageError('Fotograf boyutu 10 MB sinirini asiyor.', 'storage/file-too-large');
   }
 }
 
-export function uploadBytes(...args: Parameters<typeof baseUploadBytes>) {
-  assertUploadAllowed(args[1]);
-  return baseUploadBytes(...args);
+function normalizeBlob(data: UploadData): Blob {
+  if (data instanceof Blob) return data;
+  if (data instanceof Uint8Array) return new Blob([data]);
+  return new Blob([data]);
 }
 
-export function uploadBytesResumable(storageRef: any, data: UploadData, metadata?: Record<string, unknown>) {
+function buildRef(path: string): StorageRefLike {
+  const segments = path.split('/').filter(Boolean);
+  return {
+    fullPath: path,
+    name: segments[segments.length - 1] ?? 'upload',
+    bucket: 'cloudinary',
+    parent: null,
+    root: null,
+  };
+}
+
+async function uploadToCloudinary(storageRef: StorageRefLike, data: UploadData) {
   assertUploadAllowed(data);
 
+  const formData = new FormData();
+  formData.append('file', normalizeBlob(data), storageRef.name);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  formData.append('folder', storageRef.fullPath.replace(/\/$/, '').split('/').slice(0, -1).join('/'));
+  formData.append('public_id', storageRef.name.replace(/\.[^.]+$/, ''));
+
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || typeof payload?.secure_url !== 'string') {
+    const message = typeof payload?.error?.message === 'string'
+      ? payload.error.message
+      : 'Cloudinary yukleme istegi basarisiz oldu.';
+    throw createStorageError(message, 'storage/upload-failed');
+  }
+
+  storageRef.__downloadURL = payload.secure_url;
+  storageRef.__metadata = {
+    bytes: payload.bytes ?? getByteSize(data),
+    format: payload.format ?? null,
+    public_id: payload.public_id ?? null,
+    version: payload.version ?? null,
+  };
+
+  return {
+    ref: storageRef,
+    metadata: storageRef.__metadata,
+  };
+}
+
+export function getStorage() {
+  return { service: 'cloudinary' };
+}
+
+export function ref(_storage: unknown, path: string): StorageRefLike {
+  return buildRef(path);
+}
+
+export async function getDownloadURL(storageRef: StorageRefLike) {
+  if (storageRef.__downloadURL) {
+    return storageRef.__downloadURL;
+  }
+  throw createStorageError('Yuklenen dosya URL bilgisi bulunamadi.', 'storage/missing-download-url');
+}
+
+export function uploadBytes(storageRef: StorageRefLike, data: UploadData) {
+  return uploadToCloudinary(storageRef, data);
+}
+
+export function uploadBytesResumable(storageRef: StorageRefLike, data: UploadData) {
   const listeners = {
     progress: [] as ProgressCallback[],
     error: [] as ErrorCallback[],
@@ -54,19 +128,19 @@ export function uploadBytesResumable(storageRef: any, data: UploadData, metadata
 
   const snapshot = {
     ref: storageRef,
-    metadata: metadata ?? null,
+    metadata: null as Record<string, unknown> | null,
     state: 'running',
     bytesTransferred: 0,
     totalBytes: getByteSize(data),
     task: null as any,
   };
 
-  const promise = baseUploadBytes(storageRef, data as any, metadata as any)
+  const promise = uploadToCloudinary(storageRef, data)
     .then((result) => {
       snapshot.state = 'success';
       snapshot.bytesTransferred = snapshot.totalBytes;
       snapshot.ref = result.ref;
-      snapshot.metadata = result.metadata;
+      snapshot.metadata = result.metadata ?? null;
       listeners.progress.forEach((callback) => callback({ ...snapshot }));
       listeners.complete.forEach((callback) => callback());
       return result;
@@ -108,9 +182,4 @@ export function uploadBytesResumable(storageRef: any, data: UploadData, metadata
   });
 
   return task;
-}
-
-export async function resolveDownloadURL(taskOrRef: any) {
-  const target = taskOrRef?.snapshot?.ref ?? taskOrRef?.ref ?? taskOrRef;
-  return getDownloadURL(target);
 }
