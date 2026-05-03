@@ -3,6 +3,7 @@ import { getAuth } from 'firebase/auth';
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 type UploadData = Blob | Uint8Array | ArrayBuffer;
 type ProgressCallback = (snapshot: any) => void;
@@ -31,6 +32,19 @@ function createStorageError(message: string, code: string) {
   return error;
 }
 
+function sanitizeSegment(value: string) {
+  return value.replace(/[^a-zA-Z0-9-_/.]/g, '-').replace(/-+/g, '-');
+}
+
+function buildPublicId(storageRef: StorageRefLike) {
+  const baseName = storageRef.name.replace(/\.[^.]+$/, '');
+  const safeBaseName = sanitizeSegment(baseName || 'upload');
+  const suffix = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID().slice(0, 8)
+    : Math.random().toString(36).slice(2, 10);
+  return `${safeBaseName}-${suffix}`;
+}
+
 function assertUploadAllowed(data: UploadData) {
   const user = getAuth().currentUser;
   if (!user) {
@@ -43,6 +57,10 @@ function assertUploadAllowed(data: UploadData) {
 
   if (getByteSize(data) > MAX_UPLOAD_SIZE) {
     throw createStorageError('Fotograf boyutu 10 MB sinirini asiyor.', 'storage/file-too-large');
+  }
+
+  if (data instanceof Blob && data.type && !ALLOWED_IMAGE_TYPES.has(data.type)) {
+    throw createStorageError('Sadece JPG, PNG, WEBP veya GIF yukleyebilirsiniz.', 'storage/invalid-file-type');
   }
 }
 
@@ -67,10 +85,14 @@ async function uploadToCloudinary(storageRef: StorageRefLike, data: UploadData) 
   assertUploadAllowed(data);
 
   const formData = new FormData();
-  formData.append('file', normalizeBlob(data), storageRef.name);
+  const normalizedData = normalizeBlob(data);
+  const folder = sanitizeSegment(storageRef.fullPath.replace(/\/$/, '').split('/').slice(0, -1).join('/'));
+  formData.append('file', normalizedData, storageRef.name);
   formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-  formData.append('folder', storageRef.fullPath.replace(/\/$/, '').split('/').slice(0, -1).join('/'));
-  formData.append('public_id', storageRef.name.replace(/\.[^.]+$/, ''));
+  if (folder) {
+    formData.append('folder', folder);
+  }
+  formData.append('public_id', buildPublicId(storageRef));
 
   const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
     method: 'POST',
