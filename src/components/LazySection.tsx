@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, ReactNode } from 'react';
+import React, { memo, useEffect, useRef, useState, ReactNode } from 'react';
 
 interface LazySectionProps {
   children: ReactNode;
@@ -7,18 +7,27 @@ interface LazySectionProps {
   placeholderHeight?: string;
 }
 
-const LazySection: React.FC<LazySectionProps> = ({ 
-  children, 
-  threshold = 0.1, 
-  rootMargin = '100px',
+const LazySectionComponent: React.FC<LazySectionProps> = ({
+  children,
+  threshold = 0.1,
+  rootMargin = '200px 0px',
   placeholderHeight = '200px'
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     if (!('IntersectionObserver' in window)) {
       setIsVisible(true);
+      return;
+    }
+
+    const currentSection = sectionRef.current;
+    if (!currentSection) {
       return;
     }
 
@@ -26,34 +35,29 @@ const LazySection: React.FC<LazySectionProps> = ({
       ([entry]) => {
         if (entry.isIntersecting) {
           setIsVisible(true);
-          observer.unobserve(entry.target);
+          observer.disconnect();
         }
       },
       { threshold, rootMargin }
     );
 
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
-    }
-
-    // Fallback timeout to ensure visibility after 2 seconds
-    const timeout = setTimeout(() => {
-      setIsVisible(true);
-    }, 2000);
+    observer.observe(currentSection);
 
     return () => {
-      clearTimeout(timeout);
-      if (sectionRef.current) {
-        observer.unobserve(sectionRef.current);
-      }
+      observer.disconnect();
     };
   }, [threshold, rootMargin]);
 
   return (
-    <div ref={sectionRef} style={{ minHeight: isVisible ? 'auto' : placeholderHeight }}>
+    <div
+      ref={sectionRef}
+      style={{ minHeight: isVisible ? 'auto' : placeholderHeight, contentVisibility: isVisible ? 'visible' : 'auto' }}
+    >
       {isVisible ? children : <div className="animate-pulse bg-gray-100 dark:bg-zinc-900 rounded-[32px] w-full h-full" />}
     </div>
   );
 };
+
+const LazySection = memo(LazySectionComponent);
 
 export default LazySection;
