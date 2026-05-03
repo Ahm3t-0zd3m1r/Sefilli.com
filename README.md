@@ -10,11 +10,20 @@ View your app in AI Studio: https://ai.studio/apps/49d51e54-7894-4a9c-ad93-9e677
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Set `GEMINI_API_KEY` in `.env.local`
 3. Run the app:
    `npm run dev`
+
+## Vercel setup
+
+Add `GEMINI_API_KEY` to your Vercel project environment variables.
+The app now uses a server-side `/api/gemini` endpoint so the API key is no longer exposed to the browser bundle.
+
+## Upload behavior
+
+Image uploads still require an authenticated Firebase user.
+The client now blocks unauthenticated uploads earlier and the storage limit is aligned to 10 MB.
