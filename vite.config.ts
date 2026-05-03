@@ -9,7 +9,6 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, '.'),
       '@google/genai': path.resolve(__dirname, 'src/lib/googleGenAIProxy.ts'),
-      'firebase/storage': path.resolve(__dirname, 'src/lib/firebaseStorageProxy.ts'),
     },
   },
   server: {
