@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://sefilli.vercel.app/sitemap.xml
