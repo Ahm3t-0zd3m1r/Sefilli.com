@@ -18,7 +18,7 @@ import {
   Upload, Calendar, Truck, Users, Droplets, Star, User as UserIcon,
   LayoutGrid, Lock as LockIcon, Sprout as SproutIcon, FlaskConical, BookOpen,
   Package, Share2, Tractor, Calculator, Trash2, QrCode, Verified, CheckCircle, Volume2, VolumeX,
-  LineChart as LineChartIcon, Trophy
+  LineChart as LineChartIcon, Trophy, Bug, Waves, ClipboardList
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -3519,7 +3519,11 @@ export default function App() {
                   {[
                     { id: 'finance', label: 'Finansal Takip', icon: TrendingUp },
                     { id: 'inventory', label: 'Dijital Ambar', icon: Package },
-                    { id: 'destek', label: 'Destek Hesapla', icon: Calculator },
+                    { id: 'weather', label: 'Zirai Hava', icon: CloudSun },
+                    { id: 'disease', label: 'Hastalık Tespit', icon: Bug },
+                    { id: 'water', label: 'Su & Kuyu', icon: Waves },
+                    { id: 'analysis', label: 'Toprak Analizi', icon: ClipboardList },
+                    { id: 'destek', label: 'Zirai Destek', icon: Calculator },
                     { id: 'prices', label: 'Pazar Fiyatları', icon: LineChartIcon },
                     { id: 'rotation', label: 'Ekim Nöbeti', icon: SproutIcon },
                     { id: 'feed', label: 'Çiftçi Sosyal', icon: Share2 },
@@ -3751,6 +3755,186 @@ export default function App() {
                           </div>
                         </div>
                       </div>
+                    </motion.div>
+                  )}
+
+                  {farmerToolTab === 'weather' && (
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-8">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-2">Zirai Hava Durumu</h3>
+                          <p className="text-gray-500 text-sm">Niğde, İçmeli Köyü için 5 günlük detaylı tahmin.</p>
+                        </div>
+                        <div className="px-4 py-2 bg-blue-50 text-blue-600 rounded-2xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                          <CloudSun size={14} /> 12:45 Güncellendi
+                        </div>
+                      </div>
+
+                      <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-10 rounded-[48px] text-white relative overflow-hidden">
+                        <div className="relative z-10 grid md:grid-cols-2 gap-8 items-center">
+                          <div>
+                            <div className="flex items-center gap-4 mb-6">
+                              <span className="text-7xl font-light">18°</span>
+                              <div>
+                                <p className="text-2xl font-bold">Parçalı Bulutlu</p>
+                                <p className="opacity-80">Hissedilen: 16°</p>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm">
+                                <p className="text-[10px] uppercase font-bold opacity-70 mb-1">Nem</p>
+                                <p className="text-xl font-bold">%42</p>
+                              </div>
+                              <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm">
+                                <p className="text-[10px] uppercase font-bold opacity-70 mb-1">Rüzgar</p>
+                                <p className="text-xl font-bold">12 km/s</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="bg-white/10 p-8 rounded-3xl backdrop-blur-md border border-white/20">
+                            <h4 className="font-bold mb-4 flex items-center gap-2"><LockIcon size={16} /> Zirai Don Uyarısı</h4>
+                            <p className="text-sm leading-relaxed opacity-90">Önümüzdeki 48 saat içinde İçmeli mevkii için don riski bulunmamaktadır. Sulama için ideal koşullar mevcuttur.</p>
+                          </div>
+                        </div>
+                        <div className="absolute top-0 right-0 p-12 opacity-10">
+                          <CloudSun size={300} />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-5 gap-4">
+                        {['Sal', 'Çar', 'Per', 'Cum', 'Cmt'].map((day, i) => (
+                          <div key={day} className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-farm-olive/5 text-center">
+                            <p className="text-[10px] font-black text-gray-400 uppercase mb-3">{day}</p>
+                            <CloudSun size={24} className="mx-auto text-blue-400 mb-3" />
+                            <p className="text-lg font-bold text-farm-olive dark:text-farm-cream">{18 + i}°</p>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {farmerToolTab === 'disease' && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+                      <div className="text-center max-w-xl mx-auto">
+                        <Bug size={48} className="mx-auto text-farm-olive mb-4" />
+                        <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream mb-4">Zararlı & Hastalık Teşhisi</h3>
+                        <p className="text-gray-500 text-sm">Bitkinizin veya zararlının fotoğrafını yükleyin, AI destekli asistanımız saniyeler içinde analiz edip çözüm önerisi sunsun.</p>
+                      </div>
+
+                      <div className="border-4 border-dashed border-farm-olive/10 rounded-[48px] p-12 text-center bg-farm-cream/10 hover:bg-farm-cream/20 transition-all cursor-pointer">
+                        <div className="w-20 h-20 bg-farm-olive text-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-farm-olive/20">
+                          <Upload size={32} />
+                        </div>
+                        <p className="text-xl font-bold text-farm-olive dark:text-farm-cream">Bir Fotoğraf Seçin</p>
+                        <p className="text-sm text-gray-400 mt-2">VEYA SÜRÜKLEYİP BIRAKIN</p>
+                      </div>
+
+                      <div className="bg-white dark:bg-zinc-800 p-8 rounded-[40px] border border-farm-olive/5">
+                        <h4 className="font-bold text-farm-olive dark:text-farm-cream mb-6 flex items-center gap-2">
+                          <Package size={18} /> Son Teşhisler
+                        </h4>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-zinc-900 rounded-2xl border border-transparent hover:border-farm-olive/20 transition-all">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center">
+                                <Bug size={20} />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold">Patates Böceği Tespiti</p>
+                                <p className="text-[10px] text-gray-400 uppercase font-black">12 Mayıs 2024</p>
+                              </div>
+                            </div>
+                            <span className="text-xs font-bold text-farm-olive">Çözüldü</span>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {farmerToolTab === 'water' && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+                       <div className="grid md:grid-cols-2 gap-8">
+                          <div className="bg-white dark:bg-zinc-800 p-10 rounded-[48px] border border-farm-olive/5 relative overflow-hidden">
+                             <h4 className="text-xl font-black text-farm-olive dark:text-farm-cream mb-8 uppercase tracking-widest">Ana Kuyu Deposu</h4>
+                             <div className="relative w-48 h-64 mx-auto bg-gray-100 dark:bg-zinc-900 rounded-3xl border-4 border-farm-olive/10 overflow-hidden">
+                                <motion.div 
+                                  initial={{ height: '0%' }}
+                                  animate={{ height: '75%' }}
+                                  transition={{ duration: 2, ease: "easeOut" }}
+                                  className="absolute bottom-0 left-0 right-0 bg-blue-500/80 backdrop-blur-sm"
+                                >
+                                  <div className="absolute top-0 left-0 right-0 h-4 bg-white/20 animate-pulse" />
+                                </motion.div>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <span className="text-4xl font-black text-farm-olive/60">%75</span>
+                                </div>
+                             </div>
+                             <div className="mt-8 grid grid-cols-2 gap-4 text-center">
+                                <div>
+                                  <p className="text-[10px] text-gray-400 uppercase font-bold">Kapasite</p>
+                                  <p className="text-lg font-bold">500 m³</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-gray-400 uppercase font-bold">Mevcut</p>
+                                  <p className="text-lg font-bold">375 m³</p>
+                                </div>
+                             </div>
+                          </div>
+
+                          <div className="space-y-6">
+                             <div className="bg-farm-olive text-white p-8 rounded-[40px] shadow-xl shadow-farm-olive/20">
+                                <p className="text-[10px] uppercase font-bold opacity-70 mb-2">Günlük Tüketim</p>
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-4xl font-bold">12.5</span>
+                                  <span className="text-sm opacity-70">m³/gün</span>
+                                </div>
+                             </div>
+                             <div className="bg-white dark:bg-zinc-800 p-8 rounded-[40px] border border-farm-olive/5">
+                                <h5 className="font-bold mb-4 flex items-center gap-2"><Waves size={16} /> Pompa Durumu</h5>
+                                <div className="flex items-center gap-4 text-green-500 font-bold">
+                                  <div className="w-3 h-3 bg-green-500 rounded-full animate-ping" />
+                                  Çalışıyor (Basınç: 4.2 Bar)
+                                </div>
+                             </div>
+                          </div>
+                       </div>
+                    </motion.div>
+                  )}
+
+                  {farmerToolTab === 'analysis' && (
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+                       <div className="flex items-center justify-between">
+                          <h3 className="text-3xl serif text-farm-olive dark:text-farm-cream">Toprak Analiz Arşivi</h3>
+                          <button className="bg-farm-olive text-white px-6 py-3 rounded-2xl font-bold text-sm flex items-center gap-2 hover:scale-105 transition-all">
+                            <Upload size={18} /> Yeni Analiz Yükle
+                          </button>
+                       </div>
+
+                       <div className="grid gap-4">
+                          {[
+                            { date: '22 Mart 2024', field: 'Dere Mevkii (Patates)', status: 'Yüksek Verim', color: 'text-green-500' },
+                            { date: '15 Kasım 2023', field: 'Tepe Tarla (Buğday)', status: 'Fosfor Az', color: 'text-orange-500' },
+                            { date: '04 Ağustos 2023', field: 'Köy Önü (Elmalık)', status: 'Dengeli', color: 'text-blue-500' },
+                          ].map((doc, i) => (
+                            <div key={i} className="bg-white dark:bg-zinc-800 p-6 rounded-3xl border border-farm-olive/5 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-zinc-700 transition-colors">
+                              <div className="flex items-center gap-6">
+                                <div className="w-14 h-14 bg-farm-cream dark:bg-zinc-900 rounded-2xl flex items-center justify-center text-farm-olive">
+                                  <ClipboardList size={24} />
+                                </div>
+                                <div>
+                                  <p className="text-lg font-bold text-farm-olive dark:text-farm-cream">{doc.field}</p>
+                                  <p className="text-xs text-gray-400 font-bold">{doc.date}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-8">
+                                <span className={cn("text-xs font-black uppercase tracking-widest", doc.color)}>{doc.status}</span>
+                                <button className="p-3 bg-gray-100 dark:bg-zinc-900 rounded-xl hover:bg-farm-olive hover:text-white transition-all">
+                                  <FileText size={18} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                       </div>
                     </motion.div>
                   )}
 
