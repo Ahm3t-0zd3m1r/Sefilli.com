@@ -1,24 +1,16 @@
-import React, { memo } from 'react';
-import {
-  Mail, Phone, MapPin, Facebook, Instagram, Twitter, Youtube
+import React from 'react';
+import { 
+  Mail, Phone, MapPin, Facebook, Instagram, Twitter, Youtube 
 } from 'lucide-react';
 
-const quickLinks = [
-  { label: 'Hakkımızda', href: '#hakkimizda' },
-  { label: 'Pazar', href: '#marketplace' },
-  { label: 'Blog', href: '#blog' },
-  { label: 'Fiyatlar', href: '#fiyatlar' },
-  { label: 'Galeri', href: '#galeri' },
-];
-
-function FooterComponent() {
+export default function Footer() {
   return (
     <footer className="bg-farm-olive text-farm-cream py-24">
       <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-4 gap-12">
         <div className="col-span-2">
           <h3 className="text-4xl serif mb-6 italic">Sefilli.com</h3>
           <p className="text-farm-cream/60 max-w-md leading-relaxed font-light mb-8">
-            Niğde'nin bereketli topraklarında, geleneksel tarımı teknoloji ile buluşturuyoruz.
+            Niğde'nin bereketli topraklarında, geleneksel tarımı teknoloji ile buluşturuyoruz. 
             Tarladan sofranıza en taze ve doğal ürünleri ulaştırıyoruz.
           </p>
           <div className="flex gap-4">
@@ -29,7 +21,7 @@ function FooterComponent() {
             ))}
           </div>
         </div>
-
+        
         <div>
           <h4 className="text-xs font-bold uppercase tracking-widest mb-6 opacity-40">İletişim</h4>
           <ul className="space-y-4">
@@ -44,19 +36,19 @@ function FooterComponent() {
             </li>
           </ul>
         </div>
-
+        
         <div>
           <h4 className="text-xs font-bold uppercase tracking-widest mb-6 opacity-40">Hızlı Linkler</h4>
           <ul className="space-y-4">
-            {quickLinks.map((link) => (
-              <li key={link.label}>
-                <a href={link.href} className="text-sm opacity-80 hover:opacity-100 hover:translate-x-1 transition-all inline-block">{link.label}</a>
+            {['Hakkımızda', 'Pazar', 'Blog', 'Fiyatlar', 'Galeri'].map(link => (
+              <li key={link}>
+                <a href="#" className="text-sm opacity-80 hover:opacity-100 hover:translate-x-1 transition-all inline-block">{link}</a>
               </li>
             ))}
           </ul>
         </div>
       </div>
-
+      
       <div className="max-w-7xl mx-auto px-4 mt-24 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] uppercase tracking-widest opacity-40 font-bold">
         <p>© 2026 Sefilli.com - Tüm Hakları Saklıdır.</p>
         <div className="flex gap-8">
@@ -67,7 +59,3 @@ function FooterComponent() {
     </footer>
   );
 }
-
-const Footer = memo(FooterComponent);
-
-export default Footer;

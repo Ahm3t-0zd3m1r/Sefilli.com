@@ -2194,12 +2194,16 @@ export default function App() {
         <section id="anasayfa" className="relative h-[80vh] flex items-center justify-center overflow-hidden">
           <div className="absolute inset-0 z-0">
             <img 
-              src="https://picsum.photos/seed/farm/1280/720" 
-              alt="Farm Hero" 
-              className="w-full h-full object-cover brightness-50"
+              src="/hero-bg.jpg" 
+              alt="Sefilli.com Kapak" 
+              className="w-full h-full object-cover brightness-75 scale-105"
+              onError={(e) => {
+                // Eğer kullanıcı henüz fotoğrafı yüklemediyse bir fallback göster
+                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=2532&auto=format&fit=crop";
+              }}
               referrerPolicy="no-referrer"
-              loading="lazy"
             />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-farm-cream/10 dark:to-zinc-950/20" />
           </div>
           <div className="relative z-10 text-center px-4 max-w-4xl">
             <motion.h1 
